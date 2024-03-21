@@ -7,106 +7,12 @@
 # 5. Outputs T1E probability (rejection probability of the trial)
 
 
-source("GSD-allocation.R")
-source("GSD-rand_procs.R")
+#source("GSD-allocation.R")
+#source("GSD-rand_procs.R")
 library(randomizeR)
 library(rpact)
-
-set.seed(42)
-
-# Brauch ich glaub ich nicht mehr.
-#split_into_stages <- function(vector, K) {
-#  n <- length(vector)  # Total number of elements in the vector
-#  subgroups <- vector("list", K)  # Initialize list to store the subgroups
-#  
-#  for (i in 1:K) {
-# Calculate the number of elements to include in the current subgroup
-#    n_elements <- ceiling(i * n / K)
-#    subgroups[[i]] <- vector[(i-1)*n/K:n_elements]
-#  }
-#  return(unlist(subgroups))
-#}
-
-
-simulateClinicalTrial <- function(n_sim, n_patients, K) {
-  
-  # Create group sequential design
-  design <- getDesignGroupSequential(
-    typeOfDesign=c("OF"),
-    alpha = 0.05,
-    sided = 2,
-    informationRates = c(0.33,0.67,1)
-  )
-  #  print(design)
-  design <- getDesignInverseNormal(kMax = 3)
-  
-  # Initialize vectors to store results
-  means1 <- vector("list", K)
-  means2 <- vector("list", K)
-  stDevs1 <- vector("list", K)
-  stDevs2 <- vector("list", K)
-  sequences <- vector("list", n_sim)
-  
-  randobj = bsdPar(n_patients, mti = 3, groups = c("0", "1"))
-  randseq = genSeq(randobj, n_sim, seed = 2) 
-  decision <- list()
-  for (i in 1:n_sim) {
-    sequence =  randseq@M[i,]               # Generate randomisation sequence
-    patients <- rnorm(n_patients)       # Generate N(0,1) distributed random variables
-    
-    #    print("toTest:")
-    #    print(sequence)
-    #    print(patients)
-    # Split patients into groups based on randomisation sequence
-    #    group1 <- patients[sequence == 1]
-    #    group2 <- patients[sequence == 0]
-    # Split groups into stages
-    #    group1 <- split_into_stages(group1, K)
-    #    group2 <- split_into_stages(group2, K)
-    # Calculate means and standard deviations for each group
-    
-    n_group1=vector("numeric", K)
-    n_group2=vector("numeric", K)
-    for (j in 1:K) {
-      n_group1[j]=sum(sequence[(1+n_patients*(j-1)/K):(n_patients*j/K)])
-      n_group2[j]=(n_patients/K)-sum(sequence[(1+n_patients*(j-1)/K):(n_patients*j/K)])
-      means1[j] <-sum(patients[(1+n_patients*(j-1)/K):(n_patients*j/K)]*sequence[(1+n_patients*(j-1)/K):(n_patients*j/K)])/(n_group1[j])
-      means2[j] <-sum(patients[(1+n_patients*(j-1)/K):(n_patients*j/K)]*(1-sequence[(1+n_patients*(j-1)/K):(n_patients*j/K)]))/(n_group2[j])
-      #    means1[[j]] <-mean(group1[j]) # ich denke wegen subgruppen macht es am meisten sinn den mean manuell zu berechnen, wie oben
-      #    means2[[j]] <-mean(group2[j]) # ansonstne habe ich hier einen fehler drin....
-      #   stDevs1[[j]] <-c(1,1,1)
-      #    stDevs2[[j]] <-c(1,1,1)
-    }
-    #  print(means2)
-    #  print(n_group2)
-    dataset <- getDataset(means1=unlist(means1), means2=unlist(means2), stDevs1=c(1,1,1),stDevs2=c(1,1,1), n1=n_group1, n2=n_group2)
-    results = getStageResults(design = design, dataInput = dataset)
-    testaction <- getTestActions(results)
-    testdecision <- all(unlist(testaction == c("continue", "continue", "accept"))) # checks if all elements are in this form
-    decision <- c(decision, testdecision)
-    # Calculate the number of incorrect sequences
-    print(results)
-    print(testdecision)
-    print(testdecision)
-  }
-  
-  percentage_false <- (1 - mean(unlist(decision)))
-  return( percentage_false) 
-  #  return(t1e)
-}
-
-result <- simulateClinicalTrial(n_sim = 1, n_patients = 24, K = 3)
-print(result)
-
-
-
-
 library(gsDesign)     # Adjusted significance levels
 library(drcarlate)
-############### Manual calculation
-
-
-
 
 
 set.seed(1)
@@ -281,25 +187,6 @@ simulateClinicalTrial_manual(method="naive", n_sim=10000, n_patients=24,K=2)
 
 #### Calculation of T1E for inverse normal combination test
 library(mvtnorm)      # Integral calculation
-
-#mu= c(1.144,1.144)
-#mu=c(0,0)
-#cov =  matrix(c(1, sqrt(1/sqrt(2)), sqrt(1/sqrt(2)),1), nrow = 2, ncol = 2, byrow = TRUE) # nach Wassmer
-
-#testdesign = gsDesign(k = 2, test.type = 1, sfu = "Pocock", n.I=c(1/sqrt(2),1)) # nach Buch von Wassmer muss Information anders gewählt werden
-#print(testdesign)
-
-#upper_bound = testdesign$upper$bound[1:2]
-#mean_values = mu[1:2]
-#cov_matrix = cov[1:2, 1:2]
-#integral = pmvnorm(algorithm = Miwa(), lower = -Inf, upper = upper_bound, 
-#                   mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
-#alpha = 1-integral
-#alpha = round(alpha, digits=5)
-#print(alpha)
-
-
-###
 
 n=24
 
