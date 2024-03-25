@@ -9,6 +9,7 @@
 
 #source("GSD-allocation.R")
 #source("GSD-rand_procs.R")
+source("standards.R")
 library(randomizeR)
 library(rpact)
 library(gsDesign)     # Adjusted significance levels
@@ -181,7 +182,7 @@ simulateClinicalTrial_manual <- function(method, n_sim, n_patients, K) {
     
   }
 }
-simulateClinicalTrial_manual(method="naive", n_sim=10000, n_patients=24,K=2)
+simulateClinicalTrial_manual(method="naive", n_sim=3, n_patients=24,K=2)
 
 
 
@@ -209,3 +210,118 @@ beta = round(beta, digits=5)
 print(beta)
 
 
+## Calculation of Power for 2-stage group sequential design via MVN distribution
+# Example for n1=n2=20
+delta=0.1
+cov= matrix(c(1, 1/sqrt(2), 1/sqrt(2), 1), nrow =2, ncol = 2)
+mu=c(delta*sqrt(20),delta*sqrt(40))
+#mu=c(0,0)
+r=c(2.18, 2.18)
+a=c(0, 2.18)
+int1 =pmvnorm(mean=mu, sigma=cov, lower=c(-r[1], -Inf), upper=c(-a[1], -r[2]))
+int2 = pmvnorm(mean=mu, sigma=cov, lower=c(-r[1], r[2]), upper=c(-a[1], Inf))
+int3 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1], -Inf), upper=c(r[1], -r[2]))
+int4 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1], r[2]), upper=c(r[1], Inf))
+int5= 1-pmvnorm(mean=mu[1], sigma=cov[1,1], lower=c(-r[1]), upper=c(r[1]))
+power2=int1+int2+int3+int4+int5
+print(int1+int2+int3+int4+int5)
+
+
+#für K=2 komme ich auf die gleiche Power, wie wenn ich Jennisons approach benutze.
+#Für K=3 ist noch irgendwas falsch....
+
+#ToDo: Do the same for K=3
+delta=0.3
+cov= matrix(c(1, 1/sqrt(2), 1/sqrt(3), 1/sqrt(2), 1, sqrt(2/3), 1/sqrt(3), sqrt(2/3), 1 ), nrow =3, ncol = 3)
+print(cov)
+mu=c(delta*sqrt(20),delta*sqrt(40))
+mu=c(0,0,0)
+r=c(2.29, 2.29,2.29)
+a=c(0, 0, 2.29)
+int1 =pmvnorm(mean=mu[1:2], sigma=cov[1:2,1:2], lower=c(-r[1], -Inf), upper=c(-a[1], -r[2]))
+int2 = pmvnorm(mean=mu[1:2], sigma=cov[1:2,1:2], lower=c(-r[1], r[2]), upper=c(-a[1], Inf))
+int3 =pmvnorm(mean=mu[1:2], sigma=cov[1:2,1:2], lower=c(a[1], -Inf), upper=c(r[1], -r[2]))
+int4 =pmvnorm(mean=mu[1:2], sigma=cov[1:2,1:2], lower=c(a[1], r[2]), upper=c(r[1], Inf))
+int5= 1-pmvnorm(mean=mu[1], sigma=cov[1,1], lower=c(-r[1]), upper=c(r[1]))
+
+int6 =pmvnorm(mean=mu, sigma=cov, lower=c(-r[1], -r[2] -Inf), upper=c(-a[1], -a[2], -r[3]))
+int7 = pmvnorm(mean=mu, sigma=cov, lower=c(-r[1],-r[2], r[3]), upper=c(-a[1], -a[2], Inf))
+
+int8 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1],a[2], -Inf), upper=c(r[1],r[2], -r[3]))
+int9 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1],a[2], r[3]), upper=c(r[1],r[2], Inf))
+
+int10 =pmvnorm(mean=mu, sigma=cov, lower=c(-r[1], a[2] -Inf), upper=c(-a[1], r[2], -r[3]))
+int11= pmvnorm(mean=mu, sigma=cov, lower=c(-r[1],a[2], r[3]), upper=c(-a[1], r[2], Inf))
+
+int12 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1],-r[2], -Inf), upper=c(r[1],-a[2], -r[3]))
+int13 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1],-r[2], r[3]), upper=c(r[1],-a[2], Inf))
+
+power3= int1+int2+int3+int4+int5+int6+int7+int8+int9+int10+int11+int12+int13
+print(power3)
+print(cov[1:2,1:2])
+
+
+
+###########################################################
+
+
+# Function for power calculation
+Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, effect_size, information) {
+  # error control
+  if (!((n/K) %% 1 == 0)) {
+    stop("The amount of stages is not divisible by the sample size.")
+  }
+  randobj <- switch(randproc,
+                    "CR" = crPar(n, K = 2),
+                    "RAR" = rarPar(n, K = 2, groups = c("0", "1")),
+                    "BSD" = bsdPar(n, mti = mti, groups = c("0", "1")),
+                    "EBC" = ebcPar(n, p, groups = c("0", "1")),
+                    "CHEN" = chenPar(n, mti = mti, p = p, groups = c("0", "1")),
+                    "PBR" = rpbrPar(n, rb = rb, groups = c("0", "1")),
+                    "MP" = mpPar(n, mti = mti, ratio = c(1, 1)),
+                    stop("Invalid randproc parameter.")
+  )
+  
+  
+  seq = genSeq(randobj, reps, seed = 42)         # Generates a randomization sequence from randobj. Second parameter for amount of sequences to be created.
+  #      seq@M = matrix(c(1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
+  Power = rep(999999999999, reps)        #
+  
+  r <- 120  # Assume this scalar somehow determines the mesh density
+
+  # Hypothetical information fractions at each analysis
+  # This might be proportional to the number of patients recruited by these times
+
+  # Boundary values for stopping the trial at each interim analysis
+  # Assuming standard normal boundaries for simplicity
+  
+  if (!(K==1)) {
+    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
+    lower_bound = c(-999,-999,-999)
+    upper_bound = testdesign$upper$bound
+  }
+  zbdy <- rbind(lower_bound, upper_bound)
+  print(zbdy)
+  
+  # Now you would call the function with these inputs
+  results <- gst1(r, na=K, inf=information, zbdy, theta=effect_size)
+  print("Power:")
+  print(results[[2]]+results[[3]])
+  
+  # check with nquery if correct
+  # then change up Cov according to given randomisation sequence
+  # then allow to change boundaries
+  # then what about power for inverse normal combination test? 
+  
+  
+}
+
+Power_calculation(n=24, reps=1, randproc="CR", sfu="OF", K=3, effect_size=0, information= c(1/3,2/3, 1.0))
+  
+
+  testdesign = gsDesign(k=3, test.type = 2 , sfu = "Pocock", alpha= 0.025, sfupar=0.25)
+  lower_bound = testdesign$lower$bound
+  upper_bound = testdesign$upper$bound
+print(lower_bound)
+rbind(lower_bound, upper_bound)
+ print(matrix(c(-2.29, 2.29, -2.29, 2.29, -2.29, 2.29), nrow=2))
