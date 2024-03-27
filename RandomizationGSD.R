@@ -212,9 +212,10 @@ print(beta)
 
 ## Calculation of Power for 2-stage group sequential design via MVN distribution
 # Example for n1=n2=20
-delta=0.1
-cov= matrix(c(1, 1/sqrt(2), 1/sqrt(2), 1), nrow =2, ncol = 2)
-mu=c(delta*sqrt(20),delta*sqrt(40))
+delta=0.3
+cov= matrix(c(1, 1/sqrt(2)*0.5, 1/sqrt(2)*0.5, 1), nrow =2, ncol = 2)
+#cov= matrix(c(1, 1, 1, 1), nrow =2, ncol = 2)
+mu=c(delta*sqrt(40)*0.5,delta*sqrt(80)*0.5)
 #mu=c(0,0)
 r=c(2.18, 2.18)
 a=c(0, 2.18)
@@ -224,7 +225,7 @@ int3 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1], -Inf), upper=c(r[1], -r[2]))
 int4 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1], r[2]), upper=c(r[1], Inf))
 int5= 1-pmvnorm(mean=mu[1], sigma=cov[1,1], lower=c(-r[1]), upper=c(r[1]))
 power2=int1+int2+int3+int4+int5
-print(int1+int2+int3+int4+int5)
+print(power2)
 
 
 #für K=2 komme ich auf die gleiche Power, wie wenn ich Jennisons approach benutze.
@@ -297,8 +298,10 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   
   if (!(K==1)) {
     testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
-    lower_bound = c(-999,-999,-999)
+    lower_bound =testdesign$lower$bound
     upper_bound = testdesign$upper$bound
+    lower_bound =c(-8, -8)
+    upper_bound = c(2.157,2.201)
   }
   zbdy <- rbind(lower_bound, upper_bound)
   print(zbdy)
@@ -306,6 +309,7 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   # Now you would call the function with these inputs
   results <- gst1(r, na=K, inf=information, zbdy, theta=effect_size)
   print("Power:")
+  print(results)
   print(results[[2]]+results[[3]])
   
   # check with nquery if correct
@@ -316,12 +320,7 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   
 }
 
-Power_calculation(n=24, reps=1, randproc="CR", sfu="OF", K=3, effect_size=0, information= c(1/3,2/3, 1.0))
-  
-
-  testdesign = gsDesign(k=3, test.type = 2 , sfu = "Pocock", alpha= 0.025, sfupar=0.25)
-  lower_bound = testdesign$lower$bound
-  upper_bound = testdesign$upper$bound
-print(lower_bound)
-rbind(lower_bound, upper_bound)
- print(matrix(c(-2.29, 2.29, -2.29, 2.29, -2.29, 2.29), nrow=2))
+ 
+ Power_calculation(n=90, reps=1, randproc="CR", sfu="Pocock", K=2, effect_size=0.3, information= c((sqrt(40)/2)**2, (sqrt(80)/2)**2))
+ 
+                   

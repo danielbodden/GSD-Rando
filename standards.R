@@ -147,6 +147,9 @@ gst1 = function(r,na,inf,zbdy,theta)
   z2var=1-inf1/inf2 
   z2sd=sqrt(z2var) # calculate the variance and standard deviation for the current interim analysis.
   ez2=z1*sqrt(inf1/inf2)+theta*(dinf/sqrt(inf2)) #  computes the expected value of the test statistic at this interim analysis. changed to theta[k2]
+  print("expected value:")
+  print(ez2)
+  print((dinf/sqrt(inf2)))
   pupper=sum((1-pnorm((zbdy[2,k2]-ez2)/z2sd))*h1)
   pu=pu+pupper
   plower=sum(pnorm((zbdy[1,k2]-ez2)/z2sd)*h1) #  calculate the probability of crossing the upper and lower boundaries at this analysis, respectively, and are added to pu and pl.
