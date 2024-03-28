@@ -286,23 +286,26 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   
     
   seq = genSeq(randobj, reps, seed = 42)         # Generates a randomization sequence from randobj. Second parameter for amount of sequences to be created.
-  #      seq@M = matrix(c(1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
+    #    seq@M = matrix(c(0,0,0,0,0,0,1,0,0,0,0,0), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
   for (j in 1:reps) {
     current_seq = seq@M[j,]
   # Information
-  n_A = n_B = I = Summe = resp = numeric(K)
+  n_A = n_B =  numeric(K+1)
+  I = Summe = resp = numeric(K)
   n_A[[1]] = n_B[[1]] = 0 
   k=n/K
  #  hier die Anzahlen aufsummieren pro stage pro gruppe - das kannich bestimmt besser machen.
     for (i in (1:K)) {                      # for each (nonzero) stage
     subseq = current_seq[((i-1)*k+1):(i*k)]                   # Allocations in Stage i 
     n_A[i+1] = n_A[i]+sum(subseq)                         # total sample size in group A until stage i
-    n_B[i+1] = (i*k)-n_A[i+1]                         # total sample size in group B until stage i
+    n_B[i+1] = (i*k)-n_A[[i+1]]                         # total sample size in group B until stage i
     sigma = 1
+    if(n_A[[i + 1]] == 0 | n_B[[i + 1]] == 0) {     # when there have been no allocations to one group, the information is 0 (due to checks in gsdesign function we make it very close to 0)
+      I[i] = 0.000001 * i
+    } else {
     I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )   # Information for each stage 
     }
-
-  
+    }
   r <- 120  # Assume this scalar somehow determines the mesh density
 
   # Hypothetical information fractions at each analysis
@@ -315,13 +318,21 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   
   
   if (!(K==1)) {
-    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
+    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025, n.I=information)
+  #  testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
     lower_bound =testdesign$lower$bound
     upper_bound = testdesign$upper$bound
-    lower_bound =c(-8, -8)
-    upper_bound = c(2.157,2.201)
   }
+ for (i in (1:K)) {                         # if there have been no allocations to one group jump to next stage
+   if(n_A[[i+1]] == 0 | n_B[[i+1]] == 0) {
+     lower_bound[i] <- -999
+     upper_bound[i] <-  999
+   }
+ }
+ 
+ 
   zbdy <- rbind(lower_bound, upper_bound)
+
 
   # Now you would call the function with these inputs
   results <- gst1(r, na=K, inf=information, zbdy, theta=effect_size)
@@ -336,13 +347,13 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
 }
 
  
-# Power_calculation(n=80, reps=10, randproc="RAR", sfu="Pocock", K=2, effect_size=0.3, information= c((sqrt(40)/2)**2, (sqrt(80)/2)**2))
+Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDPocock, K=3, effect_size=1)
 
  
 Plot_power <- function(n, reps, K, sfu) {
   
   # Generate a sequence of effect_size values between 0 and 1
-  effect_sizes <- seq(0, 1, by = 0.01)
+  effect_sizes <- seq(0, 2, by = 0.2)
   
   # Function to calculate power for a given rand_proc
   calculate_power_for_method <- function(method) {
@@ -379,16 +390,30 @@ Plot_power <- function(n, reps, K, sfu) {
   return(ggplot2::ggplot(data_to_plot, aes(x = effect_size, y = power, color = method)) +
            geom_line() + # Use a line plot
            geom_point(size = 1, shape = 1) + # Optionally add points with smaller size and different shape
-           labs(title = "Power Calculation Results by Method", x = "Effect Size", y = "Power") +
+           labs(title = paste("Power by Effect size for two-sided OF w alpha=0.05, n=", n, ", K=", K) , x = "Effect Size", y = "Power") +
            scale_color_manual(values = color_palette) + # Use the color-blind-friendly palette
            theme_minimal() # Use a minimal theme for aesthetics
   )
 }
 
 
-Plot_power(n=24, reps=1, K=2, sfu="Pocock")
+Plot_power(n=24, reps=1, K=3, sfu="OF")
 
 # ToDO:
-#Validitätsprüfung durchgehen für Power
+#Validitätsprüfung durchgehen für Power check
+# Correction für information für sflDOF hinzufügen check
+# what to do when CR only allocates to one group? check
 # Power für richtiges Boundary-Szenario berechnen
 # dann Plots für zwei Fallzahlen und unterschiedliche Designs berechnen
+
+
+# n=24, n=90
+# mit OF, Pocock boundaries
+
+# Power for inverse normal combination test? 
+
+
+# Validitätsprüfung
+
+Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDOF, K=3, effect_size=0.5)
+
