@@ -267,7 +267,8 @@ print(cov[1:2,1:2])
 
 
 # Function for power calculation
-Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, effect_size) {
+# note: alpha is always one-sided!
+Power_calculation <- function(n, reps, K, randproc, sfu, sides = 1, alpha =0.025,  rb = 4, mti =3, p=2/3, effect_size) {
   # error control
   Power = rep(999999999999, reps)        #
   if (!((n/K) %% 1 == 0)) {
@@ -318,21 +319,24 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
   
   
   if (!(K==1)) {
-    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025, n.I=information)
+    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= alpha, n.I=information)
+    # alpha is always one-sided in gsDesign, even if 2-sided test design is selected.
   #  testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
     lower_bound =testdesign$lower$bound
     upper_bound = testdesign$upper$bound
   }
+ if (sides == 1) {
+ lower_bound=rep(-99, K)
+ }
  for (i in (1:K)) {                         # if there have been no allocations to one group jump to next stage
    if(n_A[[i+1]] == 0 | n_B[[i+1]] == 0) {
-     lower_bound[i] <- -999
-     upper_bound[i] <-  999
+     lower_bound[i] <- -99
+     upper_bound[i] <-  99
    }
  }
  
  
   zbdy <- rbind(lower_bound, upper_bound)
-
 
   # Now you would call the function with these inputs
   results <- gst1(r, na=K, inf=information, zbdy, theta=effect_size)
@@ -347,10 +351,10 @@ Power_calculation <- function(n, reps, K, randproc, sfu, rb = 4, mti =3, p=2/3, 
 }
 
  
-Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDPocock, K=3, effect_size=1)
+Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDPocock, K=2, effect_size=0, sides=1)
 
  
-Plot_power <- function(n, reps, K, sfu) {
+Plot_power <- function(n, reps, K, sfu, alpha=0.025, sides=1) {
   
   # Generate a sequence of effect_size values between 0 and 1
   effect_sizes <- seq(0, 2, by = 0.2)
@@ -390,14 +394,14 @@ Plot_power <- function(n, reps, K, sfu) {
   return(ggplot2::ggplot(data_to_plot, aes(x = effect_size, y = power, color = method)) +
            geom_line() + # Use a line plot
            geom_point(size = 1, shape = 1) + # Optionally add points with smaller size and different shape
-           labs(title = paste("Power by Effect size for two-sided OF w alpha=0.05, n=", n, ", K=", K) , x = "Effect Size", y = "Power") +
+           labs(title = paste("Power by Effect size for ", sides, "-sided ", "OF w alpha=", alpha, " n=", n, ", K=", K) , x = "Effect Size", y = "Power") +
            scale_color_manual(values = color_palette) + # Use the color-blind-friendly palette
            theme_minimal() # Use a minimal theme for aesthetics
   )
 }
 
 
-Plot_power(n=24, reps=1, K=3, sfu="OF")
+Plot_power(n=24, reps=100, K=3, sfu="OF", sides=1, alpha=0.025)
 
 # ToDO:
 #Validitätsprüfung durchgehen für Power check
@@ -410,7 +414,8 @@ Plot_power(n=24, reps=1, K=3, sfu="OF")
 # n=24, n=90
 # mit OF, Pocock boundaries
 
-# Power for inverse normal combination test? 
+# Power for inverse normal combination test?
+# owe
 
 
 # Validitätsprüfung
