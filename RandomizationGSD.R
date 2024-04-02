@@ -1,24 +1,13 @@
-###########################################################
-# This code
-# 1. Generates n_sim randomization sequences from a specific randomization procedure
-# 2. Generates n_sim N(0,1) distritbuted variables (the simulated patients)
-# 3. Calculate mean and std for every stage and both groups
-# 4. Create group sequential design (with parameters for stages, stopping boundaries, etc.)
-# 5. Outputs T1E probability (rejection probability of the trial)
-
-
-#source("GSD-allocation.R")
-#source("GSD-rand_procs.R")
 source("standards.R")
 library(randomizeR)
 library(rpact)
-library(gsDesign)     # Adjusted significance levels
+library(gsDesign)    
 library(drcarlate)
+library(mvtnorm)    
 
 
-set.seed(1)
-# Test statistic
-# Calculate means and standard deviations for each group
+# Calculates the T1E probability based on Monte Carlo simulations of the patients and randomization sequences
+# Function currently not in use
 simulateClinicalTrial_manual <- function(method, n_sim, n_patients, K) {
   if (method=="naive") {     # naive calculcation of boundaries of gsd without updates of boundaries
     # Create group sequential design
@@ -186,32 +175,10 @@ simulateClinicalTrial_manual(method="naive", n_sim=3, n_patients=24,K=2)
 
 
 
-#### Calculation of T1E for inverse normal combination test
-library(mvtnorm)      # Integral calculation
 
-n=24
-
-#mu= c(1.144,1.144)
-mu=c(0,0)
-I1 = 1/(sqrt(1/(n/4)+1/(n/4))) 
-I2 = 1/(sqrt(1/(n/2)+1/(n/2)))
-cov =  matrix(c(1, I1*I2*(2/(n/2)), I1*I2*(2/(n/2)),1), nrow = 2, ncol = 2, byrow = TRUE)
-
-testdesign = gsDesign(k = 2, test.type = 1, sfu = "Pocock")
-
-#lower_bound = testdesign$lower$bound[1:2]
-upper_bound = testdesign$upper$bound[1:2]
-mean_values = mu[1:2]
-cov_matrix = cov[1:2, 1:2]
-integral = pmvnorm(algorithm = Miwa(), lower = -Inf, upper = upper_bound, 
-                   mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
-beta = integral
-beta = round(beta, digits=5)
-print(beta)
-
-
-## Calculation of Power for 2-stage group sequential design via MVN distribution
+## Calculation of Power manually for 2-stage group sequential design via MVN distribution
 # Example for n1=n2=20
+manual_calc_power_mvn <- function() {
 delta=0.3
 cov= matrix(c(1, 1/sqrt(2)*0.5, 1/sqrt(2)*0.5, 1), nrow =2, ncol = 2)
 #cov= matrix(c(1, 1, 1, 1), nrow =2, ncol = 2)
@@ -226,12 +193,9 @@ int4 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1], r[2]), upper=c(r[1], Inf))
 int5= 1-pmvnorm(mean=mu[1], sigma=cov[1,1], lower=c(-r[1]), upper=c(r[1]))
 power2=int1+int2+int3+int4+int5
 print(power2)
+# Leads to same results as using CJ implementation
 
-
-#für K=2 komme ich auf die gleiche Power, wie wenn ich Jennisons approach benutze.
-#Für K=3 ist noch irgendwas falsch....
-
-#ToDo: Do the same for K=3
+# Same for K=3, some error here
 delta=0.3
 cov= matrix(c(1, 1/sqrt(2), 1/sqrt(3), 1/sqrt(2), 1, sqrt(2/3), 1/sqrt(3), sqrt(2/3), 1 ), nrow =3, ncol = 3)
 print(cov)
@@ -260,17 +224,63 @@ int13 =pmvnorm(mean=mu, sigma=cov, lower=c(a[1],-r[2], r[3]), upper=c(r[1],-a[2]
 power3= int1+int2+int3+int4+int5+int6+int7+int8+int9+int10+int11+int12+int13
 print(power3)
 print(cov[1:2,1:2])
+}
+
+
+#### Calculation of T1E for inverse normal combination test K=2
+# hher einmal genau aufschreiben in Overleaf
+
+n=24
+
+
+delta= 0.3
+mu=c(delta*sqrt(40)*0.5,delta*sqrt(80)*0.5)
+
+I1 = 1/(sqrt(1/(n/4)+1/(n/4))) 
+I2 = 1/(sqrt(1/(n/2)+1/(n/2)))
+cov =  matrix(c(1, I1*I2*(2/(n/2)), I1*I2*(2/(n/2)),1), nrow = 2, ncol = 2, byrow = TRUE)
+
+cov =  matrix(c(1,1/sqrt(2), 1/sqrt(2),1), nrow = 2, ncol = 2, byrow = TRUE)
+
+
+testdesign = gsDesign(k = 2, test.type = 1, sfu = "Pocock")
+
+
+
+
+#### Calculation of T1E for inverse normal combination test K=3
+
+n=24
+
+power_inverse_normal <- function(effect_size, n, K, sfu, onesided="yes", alpha=0.025) {
+  mu=c(effect_size*sqrt(n/K)*0.5,effect_size*sqrt(n/K*2)*0.5, effect_size*sqrt(n/K*3)*0.5)
+  
+  cov =  matrix(c(1,1/sqrt(2), 1/sqrt(3), 1/sqrt(2),1, sqrt(2)/sqrt(3), 1/sqrt(3), sqrt(2)/sqrt(3), 1), nrow = 3, ncol = 3, byrow = TRUE)
+  testdesign = gsDesign(k = 3, test.type = 1, sfu = "Pocock")
+  
+    upper_bound = testdesign$upper$bound[1:3]
+  mean_values = mu[1:3]
+  cov_matrix = cov[1:3, 1:3]
+  integral = pmvnorm(algorithm = Miwa(), lower = -Inf, upper = upper_bound, 
+                     mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
+  beta = integral
+  beta = round(beta, digits=5)
+  return(1-beta)
+}
+
+power_inverse_normal(effect_size=0.5,n=90, K=3, sfu="Pocock")
+power_inverse_normal(effect_size=0,n=24, K=2, sfu="Pocock")
 
 
 
 ###########################################################
-
-
-# Function for power calculation
+# Power calculation for LDM and naive Pocock and OF design and inverse normal combination test
+# based on MVN distribution conditioned on randomization sequence
+# calculated by monte carlo simulation over randomization sequences of a randomization procedure
 # note: alpha is always one-sided!
-Power_calculation <- function(n, reps, K, randproc, sfu, sides = 1, alpha =0.025,  rb = 4, mti =3, p=2/3, effect_size) {
+Power_calculation <- function(n, reps, K, randproc, sfu, sides = 1, alpha =0.025,  rb = 4, mti =3, p=2/3, effect_size, futility="no") {
   # error control
-  Power = rep(999999999999, reps)        #
+  Power = rep(999999, reps)        #
   if (!((n/K) %% 1 == 0)) {
     stop("The amount of stages is not divisible by the sample size.")
   }
@@ -290,135 +300,111 @@ Power_calculation <- function(n, reps, K, randproc, sfu, sides = 1, alpha =0.025
     #    seq@M = matrix(c(0,0,0,0,0,0,1,0,0,0,0,0), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
   for (j in 1:reps) {
     current_seq = seq@M[j,]
-  # Information
-  n_A = n_B =  numeric(K+1)
-  I = Summe = resp = numeric(K)
-  n_A[[1]] = n_B[[1]] = 0 
-  k=n/K
- #  hier die Anzahlen aufsummieren pro stage pro gruppe - das kannich bestimmt besser machen.
-    for (i in (1:K)) {                      # for each (nonzero) stage
-    subseq = current_seq[((i-1)*k+1):(i*k)]                   # Allocations in Stage i 
-    n_A[i+1] = n_A[i]+sum(subseq)                         # total sample size in group A until stage i
-    n_B[i+1] = (i*k)-n_A[[i+1]]                         # total sample size in group B until stage i
-    sigma = 1
-    if(n_A[[i + 1]] == 0 | n_B[[i + 1]] == 0) {     # when there have been no allocations to one group, the information is 0 (due to checks in gsdesign function we make it very close to 0)
-      I[i] = 0.000001 * i
-    } else {
-    I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )   # Information for each stage 
-    }
-    }
-  r <- 120  # Assume this scalar somehow determines the mesh density
 
-  # Hypothetical information fractions at each analysis
-  # This might be proportional to the number of patients recruited by these times
-
-  # Boundary values for stopping the trial at each interim analysis
-  # Assuming standard normal boundaries for simplicity
-  
- information=I
-  
-  
-  if (!(K==1)) {
-    testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= alpha, n.I=information)
-    # alpha is always one-sided in gsDesign, even if 2-sided test design is selected.
-  #  testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.025)
-    lower_bound =testdesign$lower$bound
-    upper_bound = testdesign$upper$bound
-  }
- if (sides == 1) {
- lower_bound=rep(-99, K)
- }
- for (i in (1:K)) {                         # if there have been no allocations to one group jump to next stage
-   if(n_A[[i+1]] == 0 | n_B[[i+1]] == 0) {
-     lower_bound[i] <- -99
-     upper_bound[i] <-  99
-   }
- }
+    n_A = n_B =  numeric(K+1)
+    I = Summe = resp = numeric(K)
+    n_A[[1]] = n_B[[1]] = 0 
+    k=n/K
  
- 
-  zbdy <- rbind(lower_bound, upper_bound)
+    for (i in (1:K)) {                      # Count the allocations to group A and B in each stage
+      subseq = current_seq[((i-1)*k+1):(i*k)]                   # Allocations in Stage i 
+      n_A[i+1] = n_A[i]+sum(subseq)                         # total sample size in group A until stage i
+      n_B[i+1] = (i*k)-n_A[[i+1]]                         # total sample size in group B until stage i
+      sigma = 1
+      if(n_A[[i + 1]] == 0 | n_B[[i + 1]] == 0) {     # when there have been no allocations to one group, the information is 0 (due to checks in gsdesign function we set it very close to 0)
+       I[i] = 0.000001 * i
+      } else {
+        I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )   # Information for each stage 
+      }
+    }
+    r <- 120  # Assume this scalar somehow determines the mesh density
+    if (!(K==1)) {
+      testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= alpha, n.I=I)     # alpha is always one-sided in gsDesign, even if 2-sided test design is selected.
+      lower_bound =testdesign$lower$bound
+      upper_bound = testdesign$upper$bound
+    }
+    if (sides == 1) {            # for one-sided test set lover boundary to -infty
+      lower_bound=rep(-99, K)
+    }
 
-  # Now you would call the function with these inputs
-  results <- gst1(r, na=K, inf=information, zbdy, theta=effect_size)
-  Power[j] =results[[2]]+results[[3]]
+    for (i in (1:K)) {                         # if there have been no allocations to one group jump to next stage
+      if(n_A[[i+1]] == 0 | n_B[[i+1]] == 0) {
+        lower_bound[i] <- -99
+        upper_bound[i] <-  99
+      }
+    }
+    if (futility == "yes") {                   # (binding) futility boundary 
+      lower_bound=rep(0, K)
+    }
+ 
+    zbdy <- rbind(lower_bound, upper_bound)
+    results <- gst1(r, na=K, inf=I, zbdy, theta=effect_size)  # implemented by CJ
+    Power[j] =results[[2]]
   }
   return(mean(Power))
-  # check with nquery if correct
-  # then change up Cov according to given randomisation sequence
-  # then allow to change boundaries
-  # then what about power for inverse normal combination test? 
-  
 }
+Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDPocock, K=3, effect_size=0.5, sides=1)
+Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDOF, K=3, effect_size=0.5)
 
  
-Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDPocock, K=2, effect_size=0, sides=1)
-
- 
+# Plots the power for LDM and naive Pocock and OF design for different randomization procedures
 Plot_power <- function(n, reps, K, sfu, alpha=0.025, sides=1) {
   
-  # Generate a sequence of effect_size values between 0 and 1
+  # Generate a sequence of effect_size values between 0 and 2
   effect_sizes <- seq(0, 2, by = 0.2)
   
-  # Function to calculate power for a given rand_proc
-  calculate_power_for_method <- function(method) {
-    sapply(effect_sizes, function(es) Power_calculation(n = n, reps = reps, K = K, randproc = method, sfu = sfu, effect_size = es))
+  # Define sfu values and their corresponding plotting labels
+  sfu_values <- list("Pocock" = sfu, "spendingPocock" = sfLDPocock)  # Assume sfu is a string or object, and sfldOF is an object
+  
+  # Function to calculate power for a given method and sfu object
+  calculate_power_for_method <- function(method, sfu_object) {
+    sapply(effect_sizes, function(es) Power_calculation(n = n, reps = reps, K = K, randproc = method, sfu = sfu_object, effect_size = es))
   }
   
-  # Calculate power for each rand_proc
-  methods <- c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN")
-  data_list <- lapply(methods, function(method) {
-    data.frame(effect_size = effect_sizes, power = calculate_power_for_method(method), method = method)
-  })
+  # Setup for calculation using both sfu and sfldOF objects, mapping them to labels
+  methods_and_sfu_labels <- expand.grid(method = c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), label = names(sfu_values))
   
+  # Add the calculation for power using power_inverse_normal
+  calculate_power_inverse_normal <- function(effect_sizes) {
+    sapply(effect_sizes, function(es) power_inverse_normal(effect_size = es, n = n, K = K))
+  }
+  
+  
+  data_inverse_normal <- data.frame(
+    effect_size = effect_sizes,
+    power = calculate_power_inverse_normal(effect_sizes),
+    method = "Inverse Normal",  
+    sfu_label = "Pocock" 
+  )
+  
+  # Calculate power for each combination
+  data_list <- lapply(1:nrow(methods_and_sfu_labels), function(i) {
+    row <- methods_and_sfu_labels[i, ]
+    method <- row$method
+    sfu_label <- row$label
+    sfu_object <- sfu_values[[sfu_label]]
+    data.frame(effect_size = effect_sizes, power = calculate_power_for_method(method, sfu_object), method = method, sfu_label = sfu_label)
+  })
   # Combine all data frames
   data_to_plot <- do.call(rbind, data_list)
+  data_to_plot<- rbind(data_to_plot, data_inverse_normal)
   
   # Use a color-blind-friendly palette with distinct colors
   color_palette <- RColorBrewer::brewer.pal(length(unique(data_to_plot$method)), "Dark2")
   
   # Plot the results with improved aesthetics
-  ggplot(data_to_plot, aes(x = effect_size, y = power, color = method, group = method)) +
-    geom_line(size = 1.2) + # Thicker lines for better visibility
-    geom_point(size = 2.5, alpha = 0.8, aes(shape = method)) + # Larger, semi-transparent points
-    scale_color_manual(values = color_palette) +
-    scale_shape_manual(values = c(0, 1, 2, 3, 4, 5)) + # Different shapes for each method
-    labs(title = "Power Calculation Results by Method",
+  ggplot(data_to_plot, aes(x = effect_size, y = power, color = interaction(method, sfu_label), group = interaction(method, sfu_label))) +
+    geom_line(size = 0.5) +
+    geom_point(size = 1, alpha = 0.8, aes(shape = method)) +
+#    scale_color_manual(values = color_palette) +
+#    scale_shape_manual(values = c(0, 1, 2, 3, 4, 5)) +
+    labs(title = paste("Power by Effect size for ", sides, "-sided ", "Pocock w alpha=", alpha, " n=", n, ", K=", K) ,
          x = "Effect Size",
          y = "Power",
-         color = "Method",
+         color = "Method & SFU",
          shape = "Method") +
-    theme_minimal() + # Use a minimal theme for aesthetics
-    theme(legend.position = "right") # Adjust legend position to avoid overlapping with the plot
-  
-  # Display the plot
-  return(ggplot2::ggplot(data_to_plot, aes(x = effect_size, y = power, color = method)) +
-           geom_line() + # Use a line plot
-           geom_point(size = 1, shape = 1) + # Optionally add points with smaller size and different shape
-           labs(title = paste("Power by Effect size for ", sides, "-sided ", "OF w alpha=", alpha, " n=", n, ", K=", K) , x = "Effect Size", y = "Power") +
-           scale_color_manual(values = color_palette) + # Use the color-blind-friendly palette
-           theme_minimal() # Use a minimal theme for aesthetics
-  )
+    theme_minimal() +
+    theme(legend.position = "right")
 }
-
-
-Plot_power(n=24, reps=100, K=3, sfu="OF", sides=1, alpha=0.025)
-
-# ToDO:
-#Validitätsprüfung durchgehen für Power check
-# Correction für information für sflDOF hinzufügen check
-# what to do when CR only allocates to one group? check
-# Power für richtiges Boundary-Szenario berechnen
-# dann Plots für zwei Fallzahlen und unterschiedliche Designs berechnen
-
-
-# n=24, n=90
-# mit OF, Pocock boundaries
-
-# Power for inverse normal combination test?
-# owe
-
-
-# Validitätsprüfung
-
-Power_calculation(n=24, reps=1, randproc="PBR", sfu=sfLDOF, K=3, effect_size=0.5)
+Plot_power(n=24, reps=10, K=3, sfu="Pocock", sides=1, alpha=0.025)
 
