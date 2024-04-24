@@ -416,22 +416,3 @@ gst.wg = function(r,na,inf,zbdy,theta)
 
 #-------------------------------------------------------------------------------
 
-
-
-r <- 120  # Assume this scalar somehow determines the mesh density
-na <- 3  # Suppose there are 3 planned interim analyses
-
-# Hypothetical information fractions at each analysis
-# This might be proportional to the number of patients recruited by these times
-inf <- c(1/3, 2/3, 1.0)
-
-# Boundary values for stopping the trial at each interim analysis
-# Assuming standard normal boundaries for simplicity
-zbdy <- matrix(c(-2.289, 2.289, -2.289, 2.289, -2.289, 2.289), nrow=2)
-
-theta <- c(0,0,0)  # Assume a treatment effect size of 0.5
-
-# Now you would call the function with these inputs
-results <- gst1(r, na, inf, zbdy, theta)
-
-#print(results[[2]]+results[[3]])
