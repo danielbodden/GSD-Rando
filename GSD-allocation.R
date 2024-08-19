@@ -93,7 +93,6 @@
         # Calculate sum for expected value
         for (j in (1+zero_stages):i) {                   # Summands have to be recalculated for each stage because of because of division by n_A[[i+1]]
           Summe[[j]] = + nu[j]* (1/n_A[[i+1]] * (resp[[j]][[1]] - resp[[j]][[3]]) - 1/n_B[[i+1]] * (resp[[j]][[2]]- resp[[j]][[4]]))
-          print(nu[j])
             if (!(j==(1+zero_stages))) {                # sum up only if we have more than one summand
             Summe[[j]] = Summe[[j]] + Summe[[j-1]]
           }
@@ -143,19 +142,24 @@
           }
         }
         info_frac = as.numeric(I[1:K]) / as.numeric(I[K])  # Update information according to allocation
-        testdesign = gsDesign(k = K, test.type = 2, sfu = sfu, n.I = info_frac)
+        testdesign = gsDesign(k = K, test.type = 1, sfu = sfu, n.I = info_frac)
       } else {
-        testdesign = gsDesign(k = K, test.type = 2, sfu = sfu)  # Do not update information according to allocation
+        testdesign = gsDesign(k = K, test.type = 1, sfu = sfu)  # Do not update information according to allocation
       }
       
       # Calculate integral
       set.seed(1) 
-      lower_bound = testdesign$lower$bound[(1 + zero_stages):k]
+      #lower_bound = testdesign$lower$bound[(1 + zero_stages):k]
+      lower_bound = rep(-99,k)
       upper_bound = testdesign$upper$bound[(1 + zero_stages):k]
       mean_values = mu[(1 + zero_stages):k]
       cov_matrix = cov[(1 + zero_stages):k, (1 + zero_stages):k]
+#      integral = pmvnorm(algorithm = Miwa(), lower = lower_bound, upper = upper_bound, 
+ #                       mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
+      
+      
       integral = pmvnorm(algorithm = Miwa(), lower = lower_bound, upper = upper_bound, 
-                        mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
+                         mean = mean_values, sigma = cov_matrix, abseps = 1e-16)
       alpha = 1-integral
       alpha = round(alpha, digits=5)
       return(alpha)
@@ -194,17 +198,19 @@
       }
     
       seq = genSeq(randobj, reps, seed = seed)         # Generates a randomization sequence from randobj. Second parameter for amount of sequences to be created.
-#      seq@M = matrix(c(1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
+      seq@M = matrix(c(1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,1), nrow=1, byrow=TRUE)  #   Hardcoded sequence for testing
       typeIerror = matrix(, nrow=K, ncol=reps)        # rows: stage, column: repetition
       #  plotSeq(seq, plotAllSeq = T)                 # plotting of randomization sequences for debuggging
       gonogo = matrix(, nrow=K, ncol=reps)
       
       if (!(K==1)) {
-        testdesign = gsDesign(k=K, test.type = 2 , sfu = sfu, alpha= 0.05, sfupar=0.25)
+        testdesign = gsDesign(k=K, test.type = 2 , sfu  = sfu, alpha= 0.05, sfupar=0.25)
       }
     
-      
       for (j in 1:reps) {
+        
+        print(seq@M[j,])
+        
         sum = sum(seq@M[j,])
         
         if (((sum !=0 ) & (sum !=n ))) {
@@ -320,12 +326,17 @@
       return(gonogo)  
     }
     
-#   GSD_allocation_seq(sfu="OF", K=2, seq=c(1,1,1,1,0,0,1,0,1,1), ui="Yes")
+  # GSD_allocation_seq(sfu="OF", K=2, seq=c(1,1,1,1,0,0,1,0,1,1), ui="Yes")
     
     
     #test how long the function GSD_selection_bias(n=90, reps=10, K=9, randproc="RAR", sfu="OF", nu=0, seed=42, ui="No", rb=4, mti=3, p=2/3) runs
   # GSD_selection_bias(n=120, reps=10, K=3, randproc="CR", sfu="OF", seed=42, ui="No", rb=4, mti=3, p=2/3, nu=0.0572)
 
-    testdesign = gsDesign(k = 3, test.type = 2, sfu = "Pocock")
-    testdesign$lower$bound
+   GSD_selection_bias(n = 20, reps = 1, K = 2, randproc = "CR", sfu = "Pocock", nu = 0, seed = 1, ui = "no", p=2/3, mti=3, rb=10)
     
+   
+test1=    gsDesign(k = 3, test.type = 1, sfu = "Pocock", n.I = c(1/3,2/3,1))
+print(test1$upper$bound)
+  test2= gsDesign(k = 3, test.type = 2, sfu = "Pocock", n.I = c(1/6,1/3,1))
+   print(test2$upper$bound)
+   
