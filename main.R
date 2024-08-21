@@ -1,5 +1,4 @@
-source("RandomizationGSD.R")
-
+source("Plot_and_Save.R")
 
 reps = 100000000
 # Manual calculation for validation
@@ -15,4 +14,5 @@ reps = 100000000
 
 
 
-save_to_excel(n=24,n_sim=2000,K=3)
+T1E_save_to_excel(n=6,n_sim=1,K=3)
+
