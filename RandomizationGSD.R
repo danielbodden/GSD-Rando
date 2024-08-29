@@ -90,7 +90,7 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
       for (i in (2:K)) { # For every stage
         subseq = current_seq[((i-1)*k+1):(i*k)]                                   # Allocations in Stage i 
         n_A[i+1] = n_A[i]+sum(subseq)                                             # total sample size in group A until stage i
-        n_B[i+1] = (i*k)
+        n_B[i+1] = (i*k)-n_A[i+1]
         I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )                    # Information for each stage 
       }
       if (!(K==1)) {
@@ -129,15 +129,18 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
       zbdy <- rbind(lower_bound, upper_bound)
       results <- gst1(r, na=K, inf=I, zbdy, theta=delta)                         # Function provided by Chris Jennison
       Pow = results[[2]]
-      }
+    }
       Power[j] <<- Pow
     }))
 
    # Stop cluster
 #  stopCluster(cl)
-
+   Power = Power[Power != -99]
    return(list( Pow = Power, Counter = counter_zero_allocations))
 }
+
+#Power_condMVN(n=6, n_sim=10, K=3, RP="RAR", sfu="Pocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility="no")
+  
 
 
 # Calculates power for 2 or 3 stages when given EV; Cov and boundaries. Calculation is performed manually, armitage formular not used.
@@ -201,13 +204,16 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu) {
       n_A[i+1] = sum(subseq)                                                   # total sample size in group A until stage i
       n_B[i+1] = (k)-n_A[[i+1]]                                               # total sample size in group B until stage i
       sigma = 1
+      I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )                    # Information for each stage 
+
       
       testdesign = gsDesign(k=K, test.type = 1 , sfu = sfu, alpha= 0.025)  
       upper_bound = testdesign$upper$bound
       lower_bound=rep(-99, K)
-    }
+     }
     # Mean and Cov for inverse normal combination function
     mean <- sapply(1:K, function(k) sum(sqrt(I[1:k])) / sqrt(k) * delta)
+    print(mean)
     entries <- c(1, 1/sqrt(2), 1/sqrt(3), 
                  1/sqrt(2), 1, 2/sqrt(6), 
                  1/sqrt(3), 2/sqrt(6), 1)
@@ -215,10 +221,11 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu) {
     Power[j] =MVN_calculation(mean=mean[1:K], Cov = Cov[1:K, 1:K], K=K, lower_bound = lower_bound, upper_bound=upper_bound) 
     }
   }))
+  Power = Power[Power != -99]
   return(list(Pow = Power, Counter = counter_zero_allocations))
 }
 
-#Power_inverse_normal(n=6, K=3, RP="CR", n_sim=10, delta=0, sfu="OF")
+#Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=0.2, sfu="OF")
 #Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=10, delta=0, sfu="OF")
 
 

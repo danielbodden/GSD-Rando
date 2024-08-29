@@ -1,6 +1,5 @@
 source("Plot_and_Save.R")
 
-reps = 100000000
 # Manual calculation for validation
 #CR_manual = simulateClinicalTrial_manual(method="naive", n_sim=reps, n=24,K=2, randproc="CR")
 #print(paste("T1E for manual calculation with CR:", CR_manual))
@@ -10,9 +9,9 @@ reps = 100000000
 
 # Calculate and save
 
-#save_to_excel(n=24,reps=1,K=2)
+power_save_to_excel(n=6,n_sim=4000,K=3)
 
 
 
-T1E_save_to_excel(n=6,n_sim=1,K=3)
+#T1E_save_to_excel(n=24,n_sim=8000,K=3)
 

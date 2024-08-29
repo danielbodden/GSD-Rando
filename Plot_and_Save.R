@@ -70,7 +70,7 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
   saveWorkbook(wb, filepath, overwrite = TRUE)
   print(paste("Workbook saved to", filepath))
 }#
-power_save_to_excel(n=6,n_sim=5,K=3)
+#power_save_to_excel(n=6,n_sim=5,K=3)
 
 
 # Calculates the T1E for different randomization procedures with the following boundaries 
@@ -154,7 +154,7 @@ read_all_sheets_into_one_df <- function(file_path) {
   
   for (sheet in sheet_names) {                 # Loop through each sheet and read it into a dataframe
     df <- read_excel(file_path, sheet = sheet)
-    colnames(df) <- c("index", "gsd", "RP", "Power")      # Assign the specified column names
+    colnames(df) <- c("Index", "gsd", "RP", "Power")      # Assign the specified column names
     combined_df <- rbind(combined_df, df)                # Combine the dataframes
   }
   return(combined_df)
@@ -163,7 +163,7 @@ read_all_sheets_into_one_df <- function(file_path) {
 
 create_boxplot <- function(file_path) {
   data <- read_all_sheets_into_one_df(file_path)        # Read data from the Excel file
-
+  data <- subset(data, gsd == "POC" | gsd == "OF")      # Only for Pocock and OF
   # Ensure 'gsd' and 'RP' are treated as factors and ordered
   data$gsd <- factor(data$gsd, levels = unique(data$gsd))
   data$RP <- factor(data$RP, levels = unique(data$RP))
@@ -177,6 +177,9 @@ create_boxplot <- function(file_path) {
   
   # Round the Power values
   data$Power <- round(data$Power, 4)
+
+
+  
   
   # Create the boxplots with the specified title
   p <- ggplot(data, aes(x = interaction_term, y = Power)) +
@@ -184,13 +187,13 @@ create_boxplot <- function(file_path) {
     labs(x = "GSD and RP Combination", y = "Power") +
     ggtitle("T1E for GSD with n=24 and K=3") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    scale_x_discrete(limits = levels(data$interaction_term)) +
-    ylim(0.024, NA)  # Set lower limit of y-axis to 0.0225
+    scale_x_discrete(limits = levels(data$interaction_term)) 
+ #   ylim(0.024, NA)  # Set lower limit of y-axis to 0.0225
   print(p)    # Display the plot
 }
 
 # Example usage
-#file_path <- "data/T1E_n 24 _K 3 _n_sim 5000 .xlsx"
+#file_path <- "data/T1E n 24  K 3  n_sim 1000 .xlsx"
 #create_boxplot(file_path)
 
 
@@ -237,9 +240,8 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 }
 
 
-
-#sfu <- c("coRPOC", "POC", "LDMPOC")  # Multiple GSD values
-#PlotPower("data/ResultsPower_n 6 _K 2 _n_sim 1000 .xlsx", RP_values=c("CR", "PBR"), sfu = sfu)
+#sfu <- c("IVNOF")  # Multiple GSD values
+#PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 1000 .xlsx", RP_values=c("CR", "BSD", "CHEN", "PBR", "EBC", "RAR"), sfu = sfu)
 
 #sfu <- c("Pocock")  # Multiple GSD values
 #PlotPower("data/ResultsPower_n 24 _K 2 _reps 8000 .xlsx", RP_values=c("CR"), sfu = sfu)
