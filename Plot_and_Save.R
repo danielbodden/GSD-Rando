@@ -7,20 +7,20 @@ source("RandomizationGSD.R")
 # - Pocock / Of with correction for actual information
 # _ inverse normal combination function Pocock / OF boundaries
 # and saves it as an excel file.
-power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti = 3, p = 2/3, futility = "no") {
+power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti = 3, p = 2/3, futility = FALSE, futility_binding = FALSE) {
   deltas <- seq(0, 2, by = 0.2)           # Grid for effect sizes
 
   # List of group sequential designs used
-  gsd <- list("POC" = "Pocock", "LDMPOC" = sfLDPocock, "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = sfLDOF, "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
   
   # Function to calculate power for a given sfu and sfu object
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
-    Power_list = Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = es)
+    Power_list = Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = es, futility = futility, futility_binding = futility_binding)
     Power_mean = round(mean(Power_list$Pow), 4)
     return(list(Pow = Power_mean, Counter = Power_list$Counter))
     }
   calculate_power_for_inverse_normal <- function(rp, gsd_object, es) {
-    Power_list = Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = es)
+    Power_list = Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = es, futility = futility, futility_binding = futility_binding)
     Power_mean = round(mean(Power_list$Pow), 4)
     return(list(Pow = Power_mean, Counter = Power_list$Counter))
   }
@@ -65,8 +65,10 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
     writeData(wb, sheet_name, data_combined)
   }
   # Save the workbook to a file
-  filepath <- paste("data/ResultsPower_n", n, "_K", K, "_n_sim", n_sim, ".xlsx")  
+  futility_string <- as.character(futility)
+  futility_binding <- as.character(futility_binding)
   
+  filepath <- paste("data/ResultsPower n", n, "K", K, "n_sim", n_sim, "fut", futility_string, "futbind", futility_binding, ".xlsx")  
   saveWorkbook(wb, filepath, overwrite = TRUE)
   print(paste("Workbook saved to", filepath))
 }#
@@ -82,18 +84,18 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
 # Additionally the amount of skipped randomization sequences is being saved, which happens when:
 # For Pocock, OF and LDM: if no allocations to one group in the first stage
 # For INV: if no allocations to one group in any stage
-T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti = 3, p = 2/3, futility = "no") {
+T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti = 3, p = 2/3, futility = FALSE, futility_binding = FALSE) {
   RP_values <- c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN")
   
   # List of group sequential designs used
-  gsd <- list("POC" = "Pocock", "LDMPOC" = sfLDPocock, "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = sfLDOF, "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
   
   # Function to calculate T1E for a given randomization procedure (rp) and gsd (gsd_object)
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
-    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 0)
+    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
   }
   calculate_power_for_inverse_normal <- function(rp, gsd_object, es) {
-    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 0)
+    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
   }
 
   wb <- createWorkbook()                              # Create a new Excel workbook
@@ -138,10 +140,13 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
     }
     writeData(wb,sheet="Skipped_sequences",x=counter_skipped) # FIll worksheet with the amount of skipped sequences
   }
-  
+  # Save the workbook to a file
+  futility_string <- as.character(futility)
+  futility_binding <- as.character(futility_binding)
   
   # Save the workbook to the specified file
-  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, ".xlsx")  
+  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding, ".xlsx")  
+
   saveWorkbook(wb, filepath, overwrite = TRUE)
   cat("Workbook saved to", filepath, "\n")
 }
@@ -240,8 +245,8 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 }
 
 
-#sfu <- c("IVNOF")  # Multiple GSD values
-#PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 1000 .xlsx", RP_values=c("CR", "BSD", "CHEN", "PBR", "EBC", "RAR"), sfu = sfu)
+#sfu <- c("LDMPOC", "coRPOC", "IVNPOC")  # Multiple GSD values
+#PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 1000 .xlsx", RP_values=c("CR"), sfu = sfu)
 
 #sfu <- c("Pocock")  # Multiple GSD values
 #PlotPower("data/ResultsPower_n 24 _K 2 _reps 8000 .xlsx", RP_values=c("CR"), sfu = sfu)
@@ -260,4 +265,5 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 # Problem with inverse  normal when a stage has only zero allocations -> in that case I remove the data from the patients completely.
 # Other option would be to add it to another stage, but if it was in the last stage the test was alrady conducted.
 # Recreate boxplots for n=5000 with new calculation
+
 
