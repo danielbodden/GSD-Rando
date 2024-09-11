@@ -128,13 +128,13 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
             testdesign = gsDesign(k=K, test.type = sides , sfu = sfu, alpha= alpha, n.I=I)   
             upper_bound = testdesign$upper$bound
           } else {
-          I = I/I[[length(I)]]            # rpact uses information fraction instead of total information
+          I_normed = I/I[[length(I)]]            # rpact uses information fraction instead of total information
           design_types_LDM <- c("LDMOF" = "asOF", "LDMPocock" = "asP")
           
           if (sfu %in% names(design_types_LDM)) {
             design <- getDesignGroupSequential(
               sided = 1, alpha = alpha,
-              informationRates = I, typeOfDesign = design_types_LDM[[sfu]],
+              informationRates = I_normed, typeOfDesign = design_types_LDM[[sfu]],
               futilityBounds = rep(0, K-1), bindingFutility = TRUE
             )
           }
@@ -177,7 +177,7 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
 }
 
 #Power_condMVN(n=24, n_sim=1, K=3, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=FALSE, futility_binding=TRUE)
-#Power_condMVN(n=24, n_sim=1, K=3, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0)
+#Power_condMVN(n=24, n_sim=1, K=3, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=1.2)
 
 
 # Calculates power for 2 or 3 stages when given EV; Cov and boundaries. Calculation is performed manually, armitage formular not used.
@@ -284,7 +284,5 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
   return(list(Pow = Power, Counter = counter_zero_allocations))
 }
 
-Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=TRUE, futility_binding=TRUE)
+#Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=TRUE, futility_binding=TRUE)
 #Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=10, delta=0, sfu="OF")
-
-

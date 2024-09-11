@@ -9,9 +9,9 @@ source("Plot_and_Save.R")
 
 # Calculate and save
 
-#power_save_to_excel(n=24,n_sim=1000,K=3, futility=TRUE,futility_binding=FALSE)
+power_save_to_excel(n=24,n_sim=1000,K=3, futility=TRUE,futility_binding=TRUE)
 
 
 
-T1E_save_to_excel(n=24,n_sim=1000,K=3, futility=TRUE,futility_binding=FALSE)
+#T1E_save_to_excel(n=24,n_sim=1000,K=2, futility=FALSE,futility_binding=FALSE)
 

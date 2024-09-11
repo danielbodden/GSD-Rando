@@ -66,9 +66,9 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
   }
   # Save the workbook to a file
   futility_string <- as.character(futility)
-  futility_binding <- as.character(futility_binding)
+  futility_binding_string <- as.character(futility_binding)
   
-  filepath <- paste("data/ResultsPower n", n, "K", K, "n_sim", n_sim, "fut", futility_string, "futbind", futility_binding, ".xlsx")  
+  filepath <- paste("data/ResultsPower n", n, "K", K, "n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
   saveWorkbook(wb, filepath, overwrite = TRUE)
   print(paste("Workbook saved to", filepath))
 }#
@@ -142,10 +142,10 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   }
   # Save the workbook to a file
   futility_string <- as.character(futility)
-  futility_binding <- as.character(futility_binding)
+  futility_binding_string <- as.character(futility_binding)
   
   # Save the workbook to the specified file
-  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding, ".xlsx")  
+  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
 
   saveWorkbook(wb, filepath, overwrite = TRUE)
   cat("Workbook saved to", filepath, "\n")
@@ -157,7 +157,7 @@ read_all_sheets_into_one_df <- function(file_path) {
   sheet_names <- excel_sheets(file_path)      # Get the sheet names
   combined_df <- data.frame()                   # Initialize an empty dataframe
   
-  for (sheet in sheet_names) {                 # Loop through each sheet and read it into a dataframe
+  for (sheet in sheet_names[-1]) {                 # Loop through each sheet and read it into a dataframe
     df <- read_excel(file_path, sheet = sheet)
     colnames(df) <- c("Index", "gsd", "RP", "Power")      # Assign the specified column names
     combined_df <- rbind(combined_df, df)                # Combine the dataframes
@@ -198,7 +198,7 @@ create_boxplot <- function(file_path) {
 }
 
 # Example usage
-#file_path <- "data/T1E n 24  K 3  n_sim 1000 .xlsx"
+#file_path <- "data/T1E n 24  K 3  n_sim 1000 fut TRUE futbind TRUE .xlsx"
 #create_boxplot(file_path)
 
 
@@ -245,8 +245,8 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 }
 
 
-#sfu <- c("LDMPOC", "coRPOC", "IVNPOC")  # Multiple GSD values
-#PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 1000 .xlsx", RP_values=c("CR"), sfu = sfu)
+sfu <- c("LDMOF")  # Multiple GSD values
+PlotPower("data/ResultsPower n 12 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 #sfu <- c("Pocock")  # Multiple GSD values
 #PlotPower("data/ResultsPower_n 24 _K 2 _reps 8000 .xlsx", RP_values=c("CR"), sfu = sfu)
@@ -254,7 +254,7 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 
 
 #sfu <- c("IVNPOC")  # Multiple GSD values
-#PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 5000 .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
+#PlotPower("data/ResultsPower_n 24 _K 2 _n_sim 1000 .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 
 
