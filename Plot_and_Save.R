@@ -1,4 +1,5 @@
 source("RandomizationGSD.R")
+library(writexl)
 
 
 # Calculates the power for different randomization procedures with the following boundaries:
@@ -11,7 +12,11 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
   deltas <- seq(0, 2, by = 0.2)           # Grid for effect sizes
 
   # List of group sequential designs used
-  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+ # gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  # only important
+  gsd <- list("LDMPOC" = "LDMPocock", "LDMOF" = "LDMOF")
+  gsd <- list("IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  
   
   # Function to calculate power for a given sfu and sfu object
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
@@ -88,14 +93,17 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   RP_values <- c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN")
   
   # List of group sequential designs used
-  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+#  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  # only some:
+  gsd <- list("LDMPOC" = "LDMPocock", "LDMOF" = "LDMOF", "IVNOF" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  
   
   # Function to calculate T1E for a given randomization procedure (rp) and gsd (gsd_object)
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
-    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
+    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 1, futility = futility, futility_binding = futility_binding)
   }
   calculate_power_for_inverse_normal <- function(rp, gsd_object, es) {
-    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
+    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 1, futility = futility, futility_binding = futility_binding)
   }
 
   wb <- createWorkbook()                              # Create a new Excel workbook
@@ -145,7 +153,7 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   futility_binding_string <- as.character(futility_binding)
   
   # Save the workbook to the specified file
-  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
+  filepath <- paste("data/Pow_RS n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
 
   saveWorkbook(wb, filepath, overwrite = TRUE)
   cat("Workbook saved to", filepath, "\n")
@@ -187,7 +195,7 @@ create_boxplot <- function(file_path) {
   
   
   # Create the boxplots with the specified title
-  p <- ggplot(data, aes(x = interaction_term, y = Power)) +
+  p <- ggplot(data, aes(x = interaction_term, y = "Type I Error")) +
     geom_boxplot() +
     labs(x = "GSD and RP Combination", y = "Power") +
     ggtitle("T1E for GSD with n=24 and K=3") +
@@ -200,6 +208,44 @@ create_boxplot <- function(file_path) {
 # Example usage
 #file_path <- "data/T1E n 24  K 3  n_sim 1000 fut TRUE futbind TRUE .xlsx"
 #create_boxplot(file_path)
+
+create_violin_plot <- function(file_path) {
+  data <- read_all_sheets_into_one_df(file_path)        # Read data from the Excel file
+  data <- subset(data, gsd == "POC" | gsd == "OF")      # Only for Pocock and OF
+  # Ensure 'gsd' and 'RP' are treated as factors and ordered
+  data$gsd <- factor(data$gsd, levels = unique(data$gsd))
+  data$RP <- factor(data$RP, levels = unique(data$RP))
+  
+  # Create the interaction term with a specific order
+  data$interaction_term <- with(data, interaction(gsd, RP, sep = ":", lex.order = TRUE))
+  
+  # Ensure the levels of interaction_term are ordered by gsd first, then by RP
+  interaction_levels <- with(data, levels(interaction(gsd, RP, sep = ":", lex.order = TRUE)))
+  data$interaction_term <- factor(data$interaction_term, levels = interaction_levels[order(as.numeric(data$gsd), as.numeric(data$RP))])
+  
+  # Round the Power values
+  data$Power <- round(data$Power, 4)
+  
+  # Create the violin plot with the specified title
+  p <- ggplot(data, aes(x = interaction_term, y = Power, fill = interaction_term)) +
+    geom_violin(width=1, alpha=.5) +
+    stat_summary(fun = "mean",
+                 geom = "crossbar", 
+                 width = 0.2,
+                 colour = "red") +
+    labs(x = "GSD and RP Combination", y = "Type I Error") +
+    ggtitle("T1E for GSD with n=24 and K=3") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme_minimal() + theme(legend.position = "none") +
+    scale_x_discrete(limits = levels(data$interaction_term)) 
+  #   ylim(0.024, NA)  # Set lower limit of y-axis to 0.0225
+  print(p)    # Display the plot
+}
+
+
+# Example usage
+#file_path <- "data/T1En24K3n_sim8000 .xlsx"
+#create_violin_plot(file_path)
 
 
 PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu) {
@@ -245,8 +291,8 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 }
 
 
-sfu <- c("LDMOF")  # Multiple GSD values
-PlotPower("data/ResultsPower n 12 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
+#sfu <- c("LDMOF")  # Multiple GSD values
+#PlotPower("data/ResultsPower n 24 K 4 n_sim 100 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 #sfu <- c("Pocock")  # Multiple GSD values
 #PlotPower("data/ResultsPower_n 24 _K 2 _reps 8000 .xlsx", RP_values=c("CR"), sfu = sfu)
@@ -267,3 +313,170 @@ PlotPower("data/ResultsPower n 12 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx",
 # Recreate boxplots for n=5000 with new calculation
 
 
+
+#####
+
+
+# Diese Grafik wäre interessant für die Power, nicht für den T1E.
+
+create_violin_plot_binding <- function() {
+  data1 <- read_all_sheets_into_one_df("data/Pow_RS n 24  K 3  n_sim 1000 fut TRUE futbind TRUE .xlsx")        # Read data from the Excel file
+  data1$fut <- "binding"
+  data2 <- read_all_sheets_into_one_df("data/Pow_RS n 24  K 3  n_sim 1000 fut TRUE futbind FALSE .xlsx")        # Read data from the Excel file
+  data2$fut <- "non_binding"
+  data3 <- read_all_sheets_into_one_df("data/Pow_RS n 24  K 3  n_sim 1000 fut FALSE futbind FALSE .xlsx")        # Read data from the Excel file
+  data3$fut <-"no_futility"
+  data <- bind_rows(data1,data2,data3)
+  data <- subset(data, gsd == "IVNOF")      # Only for Pocock and OF
+  # Ensure 'gsd' and 'RP' are treated as factors and ordered
+  data$gsd <- factor(data$gsd, levels = unique(data$gsd))
+  data$RP <- factor(data$RP, levels = unique(data$RP))
+  
+  # Create the interaction term with a specific order
+  data$interaction_term <- with(data, interaction(gsd, RP, sep = ":", lex.order = TRUE))
+  
+  # Ensure the levels of interaction_term are ordered by gsd first, then by RP
+  interaction_levels <- with(data, levels(interaction(gsd, RP, sep = ":", lex.order = TRUE)))
+  data$interaction_term <- factor(data$interaction_term, levels = interaction_levels[order(as.numeric(data$gsd), as.numeric(data$RP))])
+  
+  # Round the Power values
+  data$Power <- round(data$Power, 4)
+  
+  data$fut <- factor(data$fut, levels=c("no_futility", "binding", "non_binding"))
+  # Create the violin plot with the specified title
+  p <- ggplot(data, aes(x = interaction_term, y = Power, fill = fut)) +
+    geom_violin(width=1, alpha=.5) +
+    stat_summary(aes(x = interaction_term, group = fut), fun = "mean",
+                 geom = "crossbar", 
+                 width = 0.2,
+                 colour = "red", 
+                 position = position_dodge(0.9)) +  
+    labs(x = "GSD and RP Combination", y = "Power") +
+    ggtitle("Power for GSD with n=24 and K=3") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme_minimal()  +
+       coord_cartesian(ylim=c(0.58, 0.68)) 
+
+  
+  print(p)    # Display the plot
+}
+
+
+#create_violin_plot_binding()
+
+
+
+
+# Different sample sizes
+
+# Sample size on x axis
+# Power on y axis
+# for one effect size
+# Function to save Power_condMVN results for n=12 to n=30 for both sfu = "LDMOF" and "IVNOF" and create a line plot
+Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
+  
+  # Initialize an empty dataframe to store results for both "LDMOF" and "IVNOF"
+  results_df <- data.frame(n = integer(), power = numeric(), sfu = character())
+  
+  for (n in seq(8, 30, by = 1)) {
+    # Call Power_condMVN with sfu = "LDMOF"
+    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = 2, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR_K2"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+    power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = 2, RP = "PBR", sfu="OF", delta=delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_PBR_K2"))
+  }
+  # Loop over n from 12 to 30 in increments of 3 for both "LDMOF" and "IVNOF"
+  for (n in seq(12, 30, by = 1)) {
+    # Call Power_condMVN with sfu = "LDMOF"
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+#    power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu="OF", delta=delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_BSD"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+ 
+    #   power_ivnof_RAR <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu="OF", delta=delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof_RAR, sfu = "IVNOF_RAR"))
+    
+    # Call Power_condMVN with sfu = "LDMOF"
+    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR_K3"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+    power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu="OF", delta=delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_PBR_K3"))
+
+#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu = "LDMOF", delta = delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_CHEN"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+#    power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu="OF", delta=delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_CHEN"))
+    
+    
+#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu = "LDMOF", delta = delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_RAR"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+ #   power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu="OF", delta=delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_RAR"))
+    
+    
+#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu = "LDMOF", delta = delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_BSD"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+ #   power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu="OF", delta=delta)$Pow)
+#    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_BSD"))
+  }
+  
+  for (n in seq(16, 30, by = 1)) {
+    # Call Power_condMVN with sfu = "LDMOF"
+    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = 4, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR_K4"))
+    
+    # Call Power_condMVN with sfu = "IVNOF"
+    power_ivnof <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = 4, RP = "PBR", sfu="OF", delta=delta)$Pow)
+    results_df <- rbind(results_df, data.frame(n = n, power = power_ivnof, sfu = "IVNOF_PBR_K4"))
+  }
+  # Save the results to an Excel file
+  file_path <- paste0("data/Power_diff_sample_sizes_PBR_nsim_", n_sim, "_K_24", K, ".xlsx")
+  
+  write_xlsx(results_df, file_path)
+  
+  # Read back the Excel file
+  read_data <- read_excel(file_path)
+  
+  # Plot the line plot for both sfu = "LDMOF" and "IVNOF"
+  plot <- ggplot(read_data, aes(x = n, y = power, color = sfu, group = sfu)) +
+    geom_line(size = 0.3) +        # Line connecting the points
+    geom_point(size = 2) +       # Points at each value of n
+    labs(x = "n", y = "Power", title = paste0("Power for different sample sizes for K=", K))  +
+    theme_minimal() +
+    scale_x_continuous(breaks = seq(8, 30, by = 1))   # Ensure breaks on x-axis correspond to the values of n
+  
+  file_name <- paste("data/plot_K", K, "_nSim", n_sim, ".pdf", sep = "")
+  
+  # Save the plot
+  ggsave(filename = file_name, plot = plot)
+}
+
+#Power_diff_sample_sizes()
+
+Power_diff_sample_sizes_plot <- function(data) {
+  # Read back the Excel file
+  read_data <- read_excel(data)
+  
+  # Plot the line plot for both sfu = "LDMOF" and "IVNOF"
+  ggplot(read_data, aes(x = n, y = power, color = sfu, group = sfu)) +
+    geom_line(size = 0.3) +        # Line connecting the points
+    geom_point(size = 2) +       # Points at each value of n
+    labs(x = "n", y = "Power", title = paste0("Power for different sample sizes")) +
+    theme_minimal() +
+    scale_x_continuous(breaks = seq(12, 90, by = 3))   # Ensure breaks on x-axis correspond to the values of n
+}
+
+
+#Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_nsim_1000_K_3.xlsx")
