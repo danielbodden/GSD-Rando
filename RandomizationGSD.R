@@ -12,9 +12,9 @@ library(rpact)
 
 # Generates randomization sequences for power calculation
 Sequence_generation <- function(n, K, RP, n_sim,  rb = 4, mti =3, p=2/3) {
-  if (!((n/K) %% 1 == 0)) {                                                 
-    stop("The amount of stages is not divisible by the sample size.")
-  }
+#  if (!((n/K) %% 1 == 0)) {                                                 
+#    stop("The amount of stages is not divisible by the sample size.")
+#  }
   
   # Generate randomization object
   randobj <- switch(as.character(RP),
@@ -74,11 +74,19 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
     n_A[[1]] = n_B[[1]] = 0 
     k=n/K
     sigma = 1
-    
-    subseq = current_seq[1:k]                                   # Allocations in Stage i 
+
+    # Calculate the sizes for each subsequence
+    n <- length(current_seq)
+    sizes <- rep(floor(n/K), K)
+    extra <- n %% K
+    if (extra != 0) {
+         sizes[1:extra] <- sizes[1:extra] + 1       # zusätzliche Allokationen auf die ersten Stages aufgeteilt
+    #  sizes[K] <- sizes[K] + extra
+    }        # Create subsequences
+    subsequences <- split(current_seq, rep(1:K, sizes))
+    subseq =unlist(subsequences[[1]])                             # Allocations in Stage 1
     n_A[2] = sum(subseq)                                        # total sample size in group A until stage 2
-    n_B[2] = k-n_A[2]                                           # total sample size in group B until stage 2
-    
+    n_B[2] = length(subseq)-n_A[2]                                           # total sample size in group B until stage 2
     if (futility == FALSE && futility_binding== TRUE) {
       futility_binding = FALSE
       warning ("Futility_binding set to FALSE AS futility is FALSE in parameter settings for Power_condMVN.")
@@ -92,9 +100,10 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
     else {
         I[1] =  1 / ( sigma/ n_A[[2]]+ sigma /n_B[[2]] )
       for (i in (2:K)) { # For every stage
-        subseq = current_seq[((i-1)*k+1):(i*k)]                                   # Allocations in Stage i 
+        subseq <- unlist(subsequences[[i]])  # Convert the i-th subsequence to a vector
+
         n_A[i+1] = n_A[i]+sum(subseq)                                             # total sample size in group A until stage i
-        n_B[i+1] = (i*k)-n_A[i+1]
+        n_B[i+1] =  n_B[i] + length(subseq) - sum(subseq)
         I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )                    # Information for each stage 
       }
       if (!(K==1)) {
@@ -176,25 +185,31 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
    return(list( Pow = Power, Counter = counter_zero_allocations))
 }
 
-#Power_condMVN(n=24, n_sim=1, K=3, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=FALSE, futility_binding=TRUE)
-#Power_condMVN(n=24, n_sim=1, K=3, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=1.2)
+#Power_condMVN(n=24, n_sim=1, K=6, RP="PBR", sfu="OF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=TRUE, futility_binding=FALSE)
+#Power_condMVN(n=10, n_sim=1, K=2, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=1.2)
+#list_power = Power_condMVN(n=64, n_sim=1000, K=4, RP="CR", sfu="LDMOF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0.6)
 
-
+#print(mean(list_power$Pow))
+#print(var(list_power$Pow))
+#print(warnings)
 # Calculates power for 2 or 3 stages when given EV; Cov and boundaries. Calculation is performed manually, armitage formular not used.
 MVN_calculation <- function(mean, Cov, K, lower_bound, upper_bound) {
   
-  Power =  pmvnorm(lower = c(upper_bound[1]), upper = c(999), 
-                   mean = mean[1], sigma = Cov[1,1], abseps = 1e-16)
+  Power = 0
   
-  
-  if (K>1) {
-    Power = Power + pmvnorm(lower = c(lower_bound[1], upper_bound[2]), upper = c(upper_bound[1], 999), 
-                            mean = mean[1:2], sigma = Cov[1:2,1:2], abseps = 1e-16)  
-  }
-  if (K==3) {
+  for (i in 1:K) {
+    # For i=1, use just lower_bound[1]; for i > 1, concatenate as required
+    if (i == 1) {
+      lower = upper_bound[1]
+      upper = c(999)
+    } else {
+      lower = c(lower_bound[1:(i-1)], upper_bound[i])
+      upper = c(upper_bound[1:(i-1)], 999)
+    }
     
-    Power = Power + pmvnorm(lower = c(lower_bound[1], lower_bound[2], upper_bound[3]), upper = c(upper_bound[1], upper_bound[2], 999), 
-                            mean = mean[1:3], sigma = Cov[1:3,1:3], abseps = 1e-16)
+    # Add the contribution of the pmvnorm for dimension i
+    Power = Power + pmvnorm(lower = lower, upper = upper, 
+                            mean = mean[1:i], sigma = Cov[1:i, 1:i], abseps = 1e-16)
   }
   
   return(Power)
@@ -206,8 +221,10 @@ MVN_calculation <- function(mean, Cov, K, lower_bound, upper_bound) {
 check_subsequences <- function(current_seq, K) {
   zero_allocation_stage = FALSE
   n <- length(current_seq)
-  subsequences <- split(current_seq, rep(1:K, each = n/K))  # Split the vector into K subsequences
-  for (subseq in subsequences) {
+#  subsequences <- split(current_seq, rep(1:K, each = n/K))  # Split the vector into K subsequences
+  subsequences <-  split(current_seq, rep(1:K, each = ceiling(length(current_seq)/K), length.out = length(current_seq)))
+  for (i in (1:K)) {
+    subseq = subsequences[[i]]
     unique_values <- unique(subseq)
     if (length(unique_values) == 1) {  # If there is only one unique value in the subsequence
       #     cat("Subsequence", subseq, "has only", unique_values, "entries\n")
@@ -224,8 +241,7 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
   seq = Sequence_generation(n=n, K=K, RP = RP, n_sim= n_sim)
   counter_zero_allocations = 0                                                # Amount of allocations that have been skipped due to only allocations to one group
   Power <- unlist(lapply(1:n_sim, function(j) {                               # loop when no Cluster is in use
-    k=n/K
-    
+
     if (futility == FALSE && futility_binding== TRUE) {
       futility_binding = FALSE
       warning ("Futility_binding set to FALSE AS futility is FALSE in parameter settings for Power_inverse_normal.")
@@ -238,14 +254,27 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
       counter_zero_allocations <<- counter_zero_allocations +1 
       Power[j] = -99
     } else {
+      
+      # Calculate the sizes for each subsequence
+      n <- length(current_seq)
+      sizes <- rep(floor(n/K), K)
+      extra <- n %% K
+      if (extra != 0) {
+        sizes[1:extra] <- sizes[1:extra] + 1       # zusätzliche Allokationen auf die ersten Stages aufgeteilt
+     #   sizes[K] <- sizes[K] + extra# zusätzliche Allokationen am Ende
+      }
+
+      # Create subsequences
+      subsequences <- split(current_seq, rep(1:K, sizes))
+      
       I = Summe = resp = numeric(K)
       n_A = n_B =  numeric(K+1)
      n_A[[1]] = n_B[[1]] = 0 
 
      for (i in (1:K)) {                                                          # For every stage
-      subseq = current_seq[((i-1)*k+1):(i*k)]                                   # Allocations in Stage i 
-      n_A[i+1] = sum(subseq)                                                   # total sample size in group A until stage i
-      n_B[i+1] = (k)-n_A[[i+1]]                                               # total sample size in group B until stage i
+       subseq =unlist(subsequences[[i]])                             # Allocations in Stage 1     
+      n_A[i+1] = sum(subseq)                                                   # total sample size in group A in stage i
+      n_B[i+1] = length(subseq)-n_A[[i+1]]                                               # total sample size in group B in stage i
       sigma = 1
       I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )                    # Information for each stage 
 
@@ -273,10 +302,14 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
      }
     # Mean and Cov for inverse normal combination function
     mean <- sapply(1:K, function(k) sum(sqrt(I[1:k])) / sqrt(k) * delta)
-    entries <- c(1, 1/sqrt(2), 1/sqrt(3), 
-                 1/sqrt(2), 1, 2/sqrt(6), 
-                 1/sqrt(3), 2/sqrt(6), 1)
-    Cov <- matrix(entries, nrow = 3, ncol = 3, byrow = TRUE)
+    Cov <- matrix(0, nrow = K, ncol = K)
+    
+    for (k in 1:K) {
+      for (l in 1:K) {
+        Cov[k, l] = sqrt(min(k, l)) / sqrt(max(k, l))
+      }
+    }
+
     Power[j] =MVN_calculation(mean=mean[1:K], Cov = Cov[1:K, 1:K], K=K, lower_bound = lower_bound, upper_bound=upper_bound) 
     }
   }))
@@ -284,5 +317,5 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
   return(list(Pow = Power, Counter = counter_zero_allocations))
 }
 
-#Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=TRUE, futility_binding=TRUE)
-#Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=10, delta=0, sfu="OF")
+#Power_inverse_normal(n=24, K=6, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=FALSE, futility_binding=TRUE)
+#print(mean(Power_inverse_normal(n=16, K=4, RP="PBR", n_sim=100, delta=1, sfu="OF")$Pow))
