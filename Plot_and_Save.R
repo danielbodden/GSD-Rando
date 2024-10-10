@@ -10,7 +10,7 @@ library(writexl)
 # and saves it as an excel file.
 power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti = 3, p = 2/3, futility = FALSE, futility_binding = FALSE) {
   deltas <- seq(0, 2, by = 0.2)           # Grid for effect sizes
-
+ #   deltas = c(1)
   # List of group sequential designs used
  # gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "INCT" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
   # only important
@@ -21,12 +21,12 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
     Power_list = Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = es, futility = futility, futility_binding = futility_binding)
     Power_mean = round(mean(Power_list$Pow), 4)
-    return(list(Pow = Power_mean, Counter = Power_list$Counter))
+    return(list(Pow = Power_mean, Counter = Power_list$Counter, stderr = Power_list$stderr))
     }
   calculate_power_for_inverse_normal <- function(rp, gsd_object, es) {
     Power_list = Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = es, futility = futility, futility_binding = futility_binding)
     Power_mean = round(mean(Power_list$Pow), 4)
-    return(list(Pow = Power_mean, Counter = Power_list$Counter))
+    return(list(Pow = Power_mean, Counter = Power_list$Counter, stderr = Power_list$stderr))
   }
   # Create a new Excel workbook
   wb <- createWorkbook()
@@ -48,14 +48,14 @@ power_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, m
           power_value <- calculate_power_for_sfu(RP, gsd_object, es)
         }
         print(RP)
-        
         # Create a data frame with columns in the correct order
         data_frames[[length(data_frames) + 1]] <- data.frame(
           delta = es,
           Power = power_value$Pow,
           RP = RP,
           GSD = gsd_label,
-          skipped_sequences = power_value$Counter
+          skipped_sequences = power_value$Counter,
+          stderr=power_value$stderr
         )
       }
       print(gsd_label)
@@ -99,10 +99,10 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   
   # Function to calculate T1E for a given randomization procedure (rp) and gsd (gsd_object)
   calculate_power_for_sfu <- function(rp, gsd_object, es) {
-    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 1, futility = futility, futility_binding = futility_binding)
+    Power_condMVN(n = n, n_sim = n_sim, K = K, RP = rp, sfu = gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
   }
   calculate_power_for_inverse_normal <- function(rp, gsd_object, es) {
-    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 1, futility = futility, futility_binding = futility_binding)
+    Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = rp, sfu=gsd_object, delta = 0, futility = futility, futility_binding = futility_binding)
   }
 
   wb <- createWorkbook()                              # Create a new Excel workbook
@@ -275,8 +275,8 @@ create_violin_plot <- function(file_path) {
 
 
 # Example usage
-file_path <- "data/T1E n 24  K 3  n_sim 1000 .xlsx"
-create_violin_plot(file_path)
+#file_path <- "data/T1E n 24  K 3  n_sim 1000 .xlsx"
+#create_violin_plot(file_path)
 
 
 
@@ -353,11 +353,11 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
     # Generate the plot
     ggplot(plot_data, aes(x = delta, y = Power, color = RP, group = interaction(RP, GSD), linetype = linetype)) +
       geom_point(aes(shape = RP, fill = ifelse(GSD == "LDM", RP, NA)), size = 1.5) +  # Use shapes and fill only for LDM
-      geom_line(size = 0.7) +
+      geom_line(size = 0.4) +
       scale_color_manual(values = color_mapping) +  # Set the colors for RPs
       scale_shape_manual(values = shape_mapping) +  # Map RP to different shapes
       scale_fill_manual(values = color_mapping, na.translate = FALSE) +  # Fill color for LDM points only
-      scale_linetype_manual(values = c("longdash", "dashed")) +  # Linetypes for GSD
+      scale_linetype_manual(values = c("solid", "dashed")) +  # Linetypes for GSD
       labs(x = "Effect Size", y = "Power", color = "Randomization Procedure", shape = "Randomization Procedure") +
       scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
       theme_minimal() +
@@ -381,8 +381,8 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
 
 
 
-sfu <- c("IVNOF")  # Multiple GSD values
-PlotPower("data/ResultsPower_n 24 _K 3 _n_sim 1000 .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
+sfu <- c("LDMOF")  # Multiple GSD values
+PlotPower("data/ResultsPower n 24 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 
 
@@ -456,13 +456,66 @@ create_violin_plot_binding <- function() {
 # Power on y axis
 # for one effect size
 # Function to save Power_condMVN results for n=12 to n=30 for both sfu = "LDMOF" and "INCT" and create a line plot
+
+
 Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
   
   # Initialize an empty dataframe to store results for both "LDMOF" and "INCT"
   results_df <- data.frame(n = integer(), power = numeric(), sfu = character())
-  
+
+ # for (n in seq(12, 60, by = 6)) {
+
+    # Call Power_condMVN with sfu = "INCT"
+ #       power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "CR", sfu="OF", delta=delta)$Pow)
+#        results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_CR"))
+        
+        # Call Power_condMVN with sfu = "INCT"
+#        power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu="OF", delta=delta)$Pow)
+#        results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_PBR"))
+        
+        
+        # Call Power_condMVN with sfu = "INCT"
+#        power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu="OF", delta=delta)$Pow)
+#        results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_BSD"))
+        
+        
+        # Call Power_condMVN with sfu = "INCT"
+#        power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu="OF", delta=delta)$Pow)
+ #       results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_RAR"))
+        
+        
+        # Call Power_condMVN with sfu = "INCT"
+#        power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "EBC", sfu="OF", delta=delta)$Pow)
+#        results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_EBC"))
+        
+        
+        # Call Power_condMVN with sfu = "INCT"
+ #       power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu="OF", delta=delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_CHEN"))
+    
+    # Call Power_condMVN with sfu = "INCT"
+
+
+   #     power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "CR", sfu = "LDMOF", delta = delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_CR"))
+    
+        
+   #     power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR"))
+        
+        
+   #     power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu = "LDMOF", delta = delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_BSD"))
+        
+        
+  #      power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "EBC", sfu = "LDMOF", delta = delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_EBC"))
+        
+  #      power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu = "LDMOF", delta = delta)$Pow)
+  #      results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_CHEN"))
+        
+#}
   for (n in seq(8, 30, by = 1)) {
-    # Call Power_condMVN with sfu = "LDMOF"
     power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = 2, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
     results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR_K2"))
     
@@ -472,17 +525,7 @@ Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
   }
   # Loop over n from 12 to 30 in increments of 3 for both "LDMOF" and "INCT"
   for (n in seq(12, 30, by = 1)) {
-    # Call Power_condMVN with sfu = "LDMOF"
-    
-    # Call Power_condMVN with sfu = "INCT"
-#    power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu="OF", delta=delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_BSD"))
-    
-    # Call Power_condMVN with sfu = "INCT"
- 
-    #   power_INCT_RAR <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu="OF", delta=delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_INCT_RAR, sfu = "INCT_RAR"))
-    
+
     # Call Power_condMVN with sfu = "LDMOF"
     power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu = "LDMOF", delta = delta)$Pow)
     results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_PBR_K3"))
@@ -491,28 +534,7 @@ Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
     power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "PBR", sfu="OF", delta=delta)$Pow)
     results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_PBR_K3"))
 
-#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu = "LDMOF", delta = delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_CHEN"))
-    
-    # Call Power_condMVN with sfu = "INCT"
-#    power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "CHEN", sfu="OF", delta=delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_CHEN"))
-    
-    
-#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu = "LDMOF", delta = delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_RAR"))
-    
-    # Call Power_condMVN with sfu = "INCT"
- #   power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "RAR", sfu="OF", delta=delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_RAR"))
-    
-    
-#    power_ldmof <- mean(Power_condMVN(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu = "LDMOF", delta = delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_ldmof, sfu = "LDMOF_BSD"))
-    
-    # Call Power_condMVN with sfu = "INCT"
- #   power_INCT <- mean(Power_inverse_normal(n = n, n_sim = n_sim, K = K, RP = "BSD", sfu="OF", delta=delta)$Pow)
-#    results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_BSD"))
+
   }
   
   for (n in seq(16, 30, by = 1)) {
@@ -525,7 +547,8 @@ Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
     results_df <- rbind(results_df, data.frame(n = n, power = power_INCT, sfu = "INCT_PBR_K4"))
   }
   # Save the results to an Excel file
-  file_path <- paste0("data/Power_diff_sample_sizes_PBR_nsim_", n_sim, "_K_24", K, "patients_divided.xlsx")
+  file_path <- paste0("data/Power_diff_sample_sizes_PBR_nsim_", n_sim, "_K_24", K, "add_patients_div.xlsx")
+ # file_path <- paste0("data/Power_diff_sample_sizes_nsim_", n_sim, "_K", K, ".xlsx")
   
   write_xlsx(results_df, file_path)
   
@@ -585,40 +608,59 @@ Power_diff_sample_sizes_plot <- function(data) {
   
   # Define full names for randomization procedures
   randomization_full_names <- c(
-    "BSD" = "Big Stick Design (3)",
-    "CHEN" = "Chen's design (2/3, 3)",
-    "PBR" = "Permuted Block Randomization (4)",
-    "RAR" = "Random Allocation Rule"
+#    "CR" = "Complete Randomization",
+#    "PBR" = "Permuted Block Randomization (4)",
+#    "BSD" = "Big Stick Design (3)",
+#    "RAR" = "Random Allocation Rule",
+#    "EBC" = "Efron's Biased Coin (2/3)",
+#    "CHEN" = "Chen's design (2/3, 3)"
+    "K2" = "2",
+    "K3" = "3",
+    "K4" = "4"
   )
   
   # Replace the abbreviations in the randomization column with full names
   read_data$randomization <- recode(read_data$randomization, !!!randomization_full_names)
   
+ # read_data$randomization <- factor(read_data$randomization, 
+#                                    levels = c( "Permuted Block Randomization (4)", 
+#                                                "Chen's design (2/3, 3)",
+#                                               "Big Stick Design (3)", 
+#                                               "Efron's Biased Coin (2/3)",
+#                                               "Random Allocation Rule", 
+#                                                "Complete Randomization"))
+  
   # Set shapes for randomization methods
-  shape_mapping <- c(
-    "Big Stick Design (3)" = 21, 
-    "Chen's design (2/3, 3)" = 22,
-    "Permuted Block Randomization (4)" = 23,
-    "Random Allocation Rule" = 24
-  )
+#  shape_mapping <- c(
+#    "Complete Randomization" = 25, 
+#    "Permuted Block Randomization (4)" = 23,
+#    "Big Stick Design (3)" = 21,
+#    "Random Allocation Rule" = 24,
+#    "Efron's Biased Coin (2/3)" = 20,
+#    "Chen's design (2/3, 3)" = 22
+#  )
   
   # Improved, more visible colors for the lines and symbols
   color_mapping <- c(
-    "Big Stick Design (3)" = "#1f78b4",  # Vibrant blue for BSD
-    "Chen's design (2/3, 3)" = "#e31a1c",  # Vibrant red for CHEN
-    "Permuted Block Randomization (4)" = "#33a02c",  # Vibrant green for PBR
-    "Random Allocation Rule" = "#6a3d9a"   # Vibrant purple for RAR
+    "Complete Randomization" = "darkgray",
+    "Permuted Block Randomization (4)" = "#33a02c",
+    "Big Stick Design (3)" = "#1f78b4",
+    "Random Allocation Rule" = "#6a3d9a",
+    "Efron's Biased Coin (2/3)" = "#ff7f00",
+    "Chen's design (2/3, 3)" = "#e31a1c"
   )
+  
+  
   
   # Plot with shape, color, and linetype customizations
   ggplot(read_data, aes(x = n, y = power, group = sfu, shape = randomization, linetype = sfu_type)) +
     geom_line(aes(color = randomization), size = 0.5) +  # Line color depends on randomization method
-    geom_point(aes(color = randomization, fill = ifelse(sfu_type == "Lan DeMets", randomization, NA)), size = 2) +  # Fill only for LDM, not for INCT
-    scale_shape_manual(values = shape_mapping) +  # Map randomization procedure to shapes
+    geom_point(aes(color = randomization, fill = randomization), size = 2) +  # Fill based on randomization (for LDM)
+#    scale_shape_manual(values = shape_mapping) +  # Map randomization procedure to shapes
     scale_linetype_manual(values = c("Lan DeMets" = "solid", "Inverse Normal Combination Test" = "dashed")) +  # Linetypes for LDM and INCT
-    scale_fill_manual(values = color_mapping, na.translate = FALSE) +  # Use the same colors for fill, and no fill for INCT
-    scale_color_manual(values = color_mapping) +  # Use the same colors for line and point color
-    labs(x = "Maximum sample size", y = "Power", shape = "Randomization Procedure", linetype = "Group Sequential Design", color = "Randomization Procedure") +
+  #  scale_fill_manual(values = color_mapping) +  # Apply the same colors for fill
+#    scale_color_manual(values = color_mapping) +  # Use the same colors for line and point color
+    labs(x = "Maximum sample size", y = "Power", shape = "Number of Stages", linetype = "Group Sequential Design", color = "Number of Stages") +
     theme_minimal() +
     scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
     theme(legend.position = c(0.75, 0.25),  # Adjust the legend position to be more central
@@ -626,16 +668,13 @@ Power_diff_sample_sizes_plot <- function(data) {
           legend.title = element_text(size = 10),  # Adjust legend title size
           legend.text = element_text(size = 9),  # Adjust legend text size for better visibility
           legend.key.size = unit(0.9, "cm")) +  # Adjust size of legend keys for better readability
-    scale_x_continuous(breaks = seq(12, 60, by = 6)) +  # Ensure breaks on x-axis correspond to the values of n
-    guides(fill = "none")  # Remove the 'fill' legend
+    scale_x_continuous(breaks = seq(8, 30, by = 1)) +  # Ensure breaks on x-axis correspond to the values of n
+    guides(fill = "none")  # Remove the 'fill' legend if needed
+  
 }
 
-# Example usage
-# Power_diff_sample_sizes_plot(data = "path_to_your_file.xlsx")
+
+#Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_nsim_1000_K3.xlsx")
 
 
-
-#Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_PBR_nsim_1000_K_243.xlsx")
-
-
-Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_nsim_1000_K_3.xlsx")
+Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_PBR_nsim_1000_K_243patients_divided.xlsx")

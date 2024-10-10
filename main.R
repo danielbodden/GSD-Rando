@@ -9,12 +9,10 @@ source("Plot_and_Save.R")
 
 # Calculate and save
 
-power_save_to_excel(n=64,n_sim=1,K=4, futility=FALSE,futility_binding=FALSE)
-
-
+#power_save_to_excel(n=120,n_sim=1000,K=3, futility=FALSE,futility_binding=FALSE)
 
 #T1E_save_to_excel(n=24,n_sim=1000,K=3, futility=TRUE,futility_binding=TRUE)
 
 # Call the function to save the data and plot the line plot
-#Power_diff_sample_sizes(n_sim =1000)
+Power_diff_sample_sizes(n_sim =1000)
 

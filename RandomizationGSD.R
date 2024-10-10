@@ -74,14 +74,13 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
     n_A[[1]] = n_B[[1]] = 0 
     k=n/K
     sigma = 1
-
     # Calculate the sizes for each subsequence
     n <- length(current_seq)
     sizes <- rep(floor(n/K), K)
     extra <- n %% K
     if (extra != 0) {
          sizes[1:extra] <- sizes[1:extra] + 1       # zusätzliche Allokationen auf die ersten Stages aufgeteilt
-    #  sizes[K] <- sizes[K] + extra
+  #    sizes[K] <- sizes[K] + extra
     }        # Create subsequences
     subsequences <- split(current_seq, rep(1:K, sizes))
     subseq =unlist(subsequences[[1]])                             # Allocations in Stage 1
@@ -91,7 +90,7 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
       futility_binding = FALSE
       warning ("Futility_binding set to FALSE AS futility is FALSE in parameter settings for Power_condMVN.")
     }
-
+    
     # When any group is empty in stage 1, skip the randomization sequence
     if(n_A[[2]] == 0 | n_B[2] == 0) {                
       Pow = -99
@@ -182,10 +181,11 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
    # Stop cluster
 #  stopCluster(cl)
    Power = Power[Power != -99]
-   return(list( Pow = Power, Counter = counter_zero_allocations))
+   stderror = std.error(Power)
+   return(list( Pow = Power, Counter = counter_zero_allocations, stderr = stderror))
 }
 
-#Power_condMVN(n=24, n_sim=1, K=6, RP="PBR", sfu="OF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=TRUE, futility_binding=FALSE)
+#Power_condMVN(n=24, n_sim=1000, K=3, RP="CR", sfu="OF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=FALSE, futility_binding=FALSE)
 #Power_condMVN(n=10, n_sim=1, K=2, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=1.2)
 #list_power = Power_condMVN(n=64, n_sim=1000, K=4, RP="CR", sfu="LDMOF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0.6)
 
@@ -261,7 +261,7 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
       extra <- n %% K
       if (extra != 0) {
         sizes[1:extra] <- sizes[1:extra] + 1       # zusätzliche Allokationen auf die ersten Stages aufgeteilt
-     #   sizes[K] <- sizes[K] + extra# zusätzliche Allokationen am Ende
+  #      sizes[K] <- sizes[K] + extra# zusätzliche Allokationen am Ende
       }
 
       # Create subsequences
@@ -279,11 +279,17 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
       I[i] =  1 / ( sigma/ n_A[[i+1]]+ sigma /n_B[[i+1]] )                    # Information for each stage 
 
       if (futility_binding == FALSE) {
-      testdesign = gsDesign(k=K, test.type = 1 , sfu = sfu, alpha= 0.025)  
+        if (sfu == "OF") { 
+          testdesign = gsDesign(k=K, test.type = 1 , sfu = sfLDOF, alpha= 0.025)  # alpha is always one-sided in gsDesign, even if 2-sided test design is selected.
+        } else if (sfu == "Pocock") {
+          testdesign = gsDesign(k=K, test.type = 1 , sfu = sfLDPocock, alpha= 0.025)  # alpha is always one-sided in gsDesign, even if 2-sided test design is selected.
+          } else {
+          testdesign = gsDesign(k=K, test.type = 1 , sfu = sfu, alpha= 0.025) 
+        }
       upper_bound = testdesign$upper$bound
       }
       if (futility_binding == TRUE) {
-        design_types <- c("OF" = "OF", "Pocock" = "P")
+        design_types <- c("OF" = "asOF", "Pocock" = "asP")
         
         if (sfu %in% names(design_types)) {
           design <- getDesignGroupSequential(
@@ -314,8 +320,24 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
     }
   }))
   Power = Power[Power != -99]
-  return(list(Pow = Power, Counter = counter_zero_allocations))
+  stderror = std.error(Power)
+  return(list(Pow = Power, Counter = counter_zero_allocations, stderr = stderror))
 }
 
 #Power_inverse_normal(n=24, K=6, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=FALSE, futility_binding=TRUE)
-#print(mean(Power_inverse_normal(n=16, K=4, RP="PBR", n_sim=100, delta=1, sfu="OF")$Pow))
+#print(mean(Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=1, sfu="OF", futility=TRUE, futility_binding=TRUE)$Pow))
+
+
+# 6-2 6-2 4-4
+#I=c(1/(1/6+1/2), 1/(1/11+1/5), 1/(1/13+1/11))
+#testdesign = gsDesign(k=3, test.type = 1 , sfu = sfLDOF, alpha= 0.025, n.I=I) 
+#print(testdesign$upper$bound)
+#testdesign = gsDesign(k=3, test.type = 1 , sfu = sfLDOF, alpha= 0.025) 
+#print(testdesign$upper$bound)
+
+#I_normed = I/I[[length(I)]]            # rpact uses information fraction instead of total information
+
+#  design <- getDesignGroupSequential(
+#    sided = 1, alpha = 0.025, typeOfDesign = design_types[[sfu]],
+#    futilityBounds = rep(0, K-1), bindingFutility = TRUE
+#  )
