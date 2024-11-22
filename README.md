@@ -1,4 +1,4 @@
-RandomizationGSD.R includes the generating of randomziation sequences and calculation of type I error and power conditioned on these generated randomization sequences.
+RandomizationGSD.R includes the generating of randomization sequences and calculation of type I error and power conditioned on these generated randomization sequences.
 
 Plot_and_Save.R includes the data generation and figure creation for visualisation.
 
