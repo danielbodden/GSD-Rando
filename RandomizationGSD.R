@@ -73,7 +73,7 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
     I = Summe = resp = numeric(K)
     n_A[[1]] = n_B[[1]] = 0 
     k=n/K
-    sigma = 1
+    sigma = 4
     # Calculate the sizes for each subsequence
     n <- length(current_seq)
     sizes <- rep(floor(n/K), K)
@@ -186,13 +186,9 @@ Power_condMVN <- function(n, n_sim, K, RP, sfu, sides = 1, alpha =0.025,  rb = 4
 }
 
 #Power_condMVN(n=24, n_sim=1000, K=3, RP="CR", sfu="OF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0, futility=FALSE, futility_binding=FALSE)
-#Power_condMVN(n=10, n_sim=1, K=2, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=1.2)
+#Power_condMVN(n=10, n_sim=1, K=2, RP="PBR", sfu="LDMPocock", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0)
 #list_power = Power_condMVN(n=64, n_sim=1000, K=4, RP="CR", sfu="LDMOF", sides = 1, alpha =0.025,  rb = 2, mti =3, p=2/3, delta=0.6)
 
-#print(mean(list_power$Pow))
-#print(var(list_power$Pow))
-#print(warnings)
-# Calculates power for 2 or 3 stages when given EV; Cov and boundaries. Calculation is performed manually, armitage formular not used.
 MVN_calculation <- function(mean, Cov, K, lower_bound, upper_bound) {
   
   Power = 0
@@ -327,17 +323,3 @@ Power_inverse_normal <- function(n, K, RP, n_sim, delta, sfu, futility=FALSE, fu
 #Power_inverse_normal(n=24, K=6, RP="PBR", n_sim=1, delta=0, sfu="OF", futility=FALSE, futility_binding=TRUE)
 #print(mean(Power_inverse_normal(n=24, K=3, RP="PBR", n_sim=1, delta=1, sfu="OF", futility=TRUE, futility_binding=TRUE)$Pow))
 
-
-# 6-2 6-2 4-4
-#I=c(1/(1/6+1/2), 1/(1/11+1/5), 1/(1/13+1/11))
-#testdesign = gsDesign(k=3, test.type = 1 , sfu = sfLDOF, alpha= 0.025, n.I=I) 
-#print(testdesign$upper$bound)
-#testdesign = gsDesign(k=3, test.type = 1 , sfu = sfLDOF, alpha= 0.025) 
-#print(testdesign$upper$bound)
-
-#I_normed = I/I[[length(I)]]            # rpact uses information fraction instead of total information
-
-#  design <- getDesignGroupSequential(
-#    sided = 1, alpha = 0.025, typeOfDesign = design_types[[sfu]],
-#    futilityBounds = rep(0, K-1), bindingFutility = TRUE
-#  )

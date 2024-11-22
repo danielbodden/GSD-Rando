@@ -94,7 +94,7 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   # List of group sequential designs used
 #  gsd <- list("POC" = "Pocock", "LDMPOC" = "LDMPocock", "coRPOC" = "coRPOC", "OF" = "OF", "LDMOF" = "LDMOF", "corOF" = "corOF", "INCT" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
   # only some:
-  gsd <- list("LDMPOC" = "LDMPocock", "LDMOF" = "LDMOF", "INCT" = "inverse normal OF", "IVNPOC" = "inverse normal Pocock")
+  gsd <- list("Pocock" = "Pocock", "OF" = "OF")
   
   
   # Function to calculate T1E for a given randomization procedure (rp) and gsd (gsd_object)
@@ -124,7 +124,7 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
         gsd_object <- gsd[[gsd_label]]
         power_value <- calculate_power_for_sfu(RP, gsd_object)
       }
-      
+ #     power_value$Pow = round(mean(power_value$Pow),4)
       # Create a data frame for the power values
       data_frame <- data.frame(
         Index = 1:length(power_value$Pow),
@@ -152,8 +152,9 @@ T1E_save_to_excel <- function(n, n_sim, K, sides = 1, alpha = 0.025, rb = 4, mti
   futility_binding_string <- as.character(futility_binding)
   
   # Save the workbook to the specified file
-  filepath <- paste("data/Pow_RS n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
-
+#  filepath <- paste("data/Pow_RS n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, "_delta1.4", ".xlsx")  
+  filepath <- paste("data/T1E n", n, " K", K, " n_sim", n_sim, "fut", futility_string, "futbind", futility_binding_string, ".xlsx")  
+  
   saveWorkbook(wb, filepath, overwrite = TRUE)
   cat("Workbook saved to", filepath, "\n")
 }
@@ -205,21 +206,21 @@ create_boxplot <- function(file_path) {
 }
 
 # Example usage
-#file_path <- "data/T1E n 24  K 3  n_sim 1000 fut TRUE futbind TRUE .xlsx"
+#file_path <- "data/Pow_RS n 24  K 3  n_sim 16000 fut FALSE futbind FALSE .xlsx"
 #create_boxplot(file_path)
 
 create_violin_plot <- function(file_path) {
   data <- read_all_sheets_into_one_df(file_path)        # Read data from the Excel file
-  data <- subset(data, gsd == "POC" | gsd == "OF")      # Only for Pocock and OF
+  data <- subset(data, gsd == "Pocock" | gsd == "OF")      # Only for Pocock and OF
   
   # Ensure 'gsd' and 'RP' are treated as factors and ordered
   data$gsd <- factor(data$gsd, levels = unique(data$gsd))
   data$RP <- factor(data$RP, levels = unique(data$RP))
   
   # Rename 'LDMPOC' and 'LDMOF' in the 'gsd' column
-  data$gsd <- factor(data$gsd, levels = c("POC", "OF"), 
+  data$gsd <- factor(data$gsd, levels = c("Pocock", "OF"), 
                      labels = c("Pocock", "O'Brien-Fleming"))
-  
+
   # Mapping of randomization procedures to full names
   RP_full_names <- c(
     "CR" = "Complete\nRandomization",
@@ -233,6 +234,7 @@ create_violin_plot <- function(file_path) {
   
   # Replace the abbreviations in the RP column with the full names
   data$RP <- recode(data$RP, !!!RP_full_names)
+
   
   # Color mapping for the violin plot
   color_mapping <- c(
@@ -260,12 +262,18 @@ create_violin_plot <- function(file_path) {
                color = "darkgreen",       # Set the color to green
                size = 1) +                # Adjust the thickness of the line
     scale_fill_manual(values = color_mapping) +  # Apply the custom color mapping
-    labs(x = "Randomization Procedure", y = "Type I Error") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Randomization Procedure", y = "Type I error rate conditioned on the randomization sequence") +
     theme_minimal() + 
-    theme(legend.position = "none") +
+    theme(legend.position="none", axis.text.x = element_text(angle = 45, hjust = 1, size = 12), # Increase x-axis text size
+          axis.text.y = element_text(size = 14),                         # Increase y-axis text size
+          axis.title.x = element_text(size = 14),                        # Increase x-axis title size
+          axis.title.y = element_text(size = 14),                        # Increase y-axis title size
+          strip.text = element_text(size = 14),                          # Increase facet title size
+          plot.title = element_text(size = 20, face = "bold")) +         # Set plot title size
     facet_wrap(~ gsd, ncol = 1, scales = "free_y")    # Separate plots by 'gsd', placed vertically
-#    scale_y_continuous(breaks = scales::pretty_breaks(n = 10), limits = c(0, 0.028))   # Increase number of y-axis values
+#  scale_y_continuous(breaks = scales::pretty_breaks(n = 5))   # Increase number of y-axis values
+ #   scale_y_continuous(breaks = scales::pretty_breaks(n = 15), limits = c(0, 0.029))   # Increase number of y-axis values
+    
     
   # Print the plot
   print(p)
@@ -275,7 +283,7 @@ create_violin_plot <- function(file_path) {
 
 
 # Example usage
-#file_path <- "data/T1E n 24  K 3  n_sim 1000 .xlsx"
+#file_path <- "data/T1E n 24  K 3  n_sim 1e+05 fut FALSE futbind FALSE .xlsx"
 #create_violin_plot(file_path)
 
 
@@ -361,45 +369,34 @@ PlotPower = function(file_path, RP_values = c("CR", "PBR", "BSD", "RAR", "EBC", 
       labs(x = "Effect Size", y = "Power", color = "Randomization Procedure", shape = "Randomization Procedure") +
       scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
       theme_minimal() +
-      theme(legend.position = c(0.8, 0.2),         # Set the legend position inside the plot
-            legend.background = element_rect(fill = "white", color = "black"),  # Add a background box for readability
-            legend.title = element_text(size = 10),  # Adjust legend title size
-            legend.text = element_text(size = 8)) +  # Adjust legend text size
-      guides(linetype = "none",  # Remove the linetype from the legend
-             fill = "none")      # Remove the fill legend
+      theme(    legend.position = c(0.8, 0.2),         # Set the legend position inside the plot
+                legend.background = element_rect(fill = "white", color = "black"),  # Add a background box for readability
+                legend.title = element_text(size = 12),  # Adjust legend title size
+                legend.text = element_text(size = 10),  # Adjust legend text size
+                axis.title.x = element_text(size = 12),  # Increase x-axis label size
+                axis.title.y = element_text(size = 12),  # Increase y-axis label size
+                axis.text.x = element_text(size = 10),   # Increase x-axis tick size
+                axis.text.y = element_text(size = 10)    # Increase y-axis tick size
+      ) +
+      guides(linetype = "none")  # Remove the linetype from the legend
   } else {
     print("No data met the filter criteria for the specified RP and GSD values.")
   }
 }
 
 
-#sfu <- c("LDMOF")  # Multiple GSD values
-#PlotPower("data/ResultsPower n 24 K 4 n_sim 100 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
+#sfu <- c("INCT")  # Multiple GSD values
+#PlotPower("data/ResultsPower n 120 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 #sfu <- c("Pocock")  # Multiple GSD values
 #PlotPower("data/ResultsPower_n 24 _K 2 _reps 8000 .xlsx", RP_values=c("CR"), sfu = sfu)
 
 
 
-sfu <- c("LDMOF")  # Multiple GSD values
-PlotPower("data/ResultsPower n 24 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
+#sfu <- c("LDMOF")  # Multiple GSD values
+#PlotPower("data/ResultsPower n 24 K 3 n_sim 1000 fut FALSE futbind FALSE .xlsx", RP_values=c("CR", "PBR", "BSD", "RAR", "EBC", "CHEN"), sfu = sfu)
 
 
-
-# IVNPOC has slighlty lower Power than Poc and LDMPOC for CR, but same power for PBR(4) as then no wrong information is used.
-# I still have to describe coRPOC
-# create Boxplots for RPs
-# when creating th eboxplots, mention how many values are not shown (Removed 13 rows containing non-finite values (stat_boxplot()).)
-# Problem with inverse  normal when a stage has only zero allocations -> in that case I remove the data from the patients completely.
-# Other option would be to add it to another stage, but if it was in the last stage the test was alrady conducted.
-# Recreate boxplots for n=5000 with new calculation
-
-
-
-#####
-
-
-# Diese Grafik wäre interessant für die Power, nicht für den T1E.
 
 create_violin_plot_binding <- function() {
   data1 <- read_all_sheets_into_one_df("data/T1E n 24  K 3  n_sim 1000 fut TRUE futbind TRUE .xlsx")        # Read data from the Excel file
@@ -570,11 +567,6 @@ Power_diff_sample_sizes <- function(n_sim = 1, K = 3, delta = 1) {
 }
 
 
-
-
-
-
-
 #Power_diff_sample_sizes()
 Power_diff_sample_sizes_plot <- function(data) {
   # Read the Excel file
@@ -663,11 +655,16 @@ Power_diff_sample_sizes_plot <- function(data) {
     labs(x = "Maximum sample size", y = "Power", shape = "Number of Stages", linetype = "Group Sequential Design", color = "Number of Stages") +
     theme_minimal() +
     scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-    theme(legend.position = c(0.75, 0.25),  # Adjust the legend position to be more central
+    theme(legend.position = c(0.85, 0.25),  # Adjust the legend position to be more central
           legend.background = element_rect(fill = "white", color = "black"),  # Add a background box for readability
-          legend.title = element_text(size = 10),  # Adjust legend title size
-          legend.text = element_text(size = 9),  # Adjust legend text size for better visibility
-          legend.key.size = unit(0.9, "cm")) +  # Adjust size of legend keys for better readability
+          legend.title = element_text(size = 18),  # Adjust legend title size
+          legend.text = element_text(size = 16),  # Adjust legend text size for better visibility
+          legend.key.size = unit(0.9, "cm"),
+          axis.title.x = element_text(size = 20),  # Increase x-axis label size
+          axis.title.y = element_text(size = 20),  # Increase y-axis label size
+          axis.text.x = element_text(size = 14),   # Increase x-axis tick size
+          axis.text.y = element_text(size = 14)    # Increase y-axis tick size
+          ) +  # Adjust size of legend keys for better readability
     scale_x_continuous(breaks = seq(8, 30, by = 1)) +  # Ensure breaks on x-axis correspond to the values of n
     guides(fill = "none")  # Remove the 'fill' legend if needed
   
@@ -677,4 +674,4 @@ Power_diff_sample_sizes_plot <- function(data) {
 #Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_nsim_1000_K3.xlsx")
 
 
-Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_PBR_nsim_1000_K_243patients_divided.xlsx")
+#Power_diff_sample_sizes_plot(data = "data/Power_diff_sample_sizes_PBR_nsim_1_K_243patients_divided.xlsx")
