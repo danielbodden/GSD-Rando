@@ -1,3 +1,4 @@
+# This file was provided by Chris Jennison for calculating group sequential properties. 
 #-------------------------------------------------------------------------------
 
 mesh = function (r) 
